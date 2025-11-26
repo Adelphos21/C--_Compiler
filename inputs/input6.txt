@@ -1,0 +1,14 @@
+int main() {
+    int n;
+    int sum;
+
+    n = 5;
+    sum = 0;
+
+    for (int i = 0; i <= n; i = i + 1) {
+        sum = sum + i;
+    }
+
+    printf(sum);
+    return 0;
+}

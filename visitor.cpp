@@ -2,6 +2,7 @@
 #include "ast.h"
 #include "visitor.h"
 #include <unordered_map>
+#include "typechecker.h"
 using namespace std;
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -71,8 +72,12 @@ int ExprStm::accept(Visitor* visitor){
 ///////////////////////////////////////////////////////////////////////////////////
 
 int GenCodeVisitor::generar(Program* program) {
+    TypeChecker tc;
+    tc.typecheck(program);
+
     tipe.tipe(program);
     fun_reserva = tipe.fun_locales;
+
     program->accept(this);
         return 0;
 }
@@ -313,7 +318,7 @@ int GenCodeVisitor::visit(FcallExp* exp) {
 /////////////////////////////////////////////
 /////////////////////////////////////////////
 ///
-int TypeCheckerVisitor::tipe(Program *program) {
+int LocalsCounterVisitor::tipe(Program *program) {
     for(auto i: program->fdlist) {
         i->accept(this);
     }
@@ -321,7 +326,7 @@ int TypeCheckerVisitor::tipe(Program *program) {
     return 0;
 }
 
-int TypeCheckerVisitor::visit(FunDec *fd) {
+int LocalsCounterVisitor::visit(FunDec *fd) {
     int parametros = fd->Pnombres.size();
     locales = 0;
     fd->cuerpo->accept(this);
@@ -329,7 +334,7 @@ int TypeCheckerVisitor::visit(FunDec *fd) {
     return 0;
 }
 
-int TypeCheckerVisitor::visit(Body *body) {
+int LocalsCounterVisitor::visit(Body *body) {
 
     for (auto i:body->declarations) {
         i->accept(this);
@@ -341,12 +346,12 @@ int TypeCheckerVisitor::visit(Body *body) {
     return 0;
 }
 
-int TypeCheckerVisitor::visit(VarDec *vd) {
+int LocalsCounterVisitor::visit(VarDec *vd) {
     locales += vd->vars.size();
     return 0;
 }
 
-int TypeCheckerVisitor::visit(IfStm *stm) {
+int LocalsCounterVisitor::visit(IfStm *stm) {
     int a = locales;
     stm-> then -> accept(this);
     int b = locales;
@@ -356,36 +361,34 @@ int TypeCheckerVisitor::visit(IfStm *stm) {
     return 0;
 }
 
-
-
-int TypeCheckerVisitor::visit(BinaryExp *exp) {
+int LocalsCounterVisitor::visit(BinaryExp *exp) {
     return 0;
 }
 
-int TypeCheckerVisitor::visit(NumberExp *exp) {
+int LocalsCounterVisitor::visit(NumberExp *exp) {
     return 0;
 }
 
-int TypeCheckerVisitor::visit(IdExp *exp) {
+int LocalsCounterVisitor::visit(IdExp *exp) {
     return 0;
 }
 
-int TypeCheckerVisitor::visit(Program *p) {
+int LocalsCounterVisitor::visit(Program *p) {
     return 0;
 }
 
-int TypeCheckerVisitor::visit(PrintStm *stm) {
+int LocalsCounterVisitor::visit(PrintStm *stm) {
     return 0;
 }
 
-int TypeCheckerVisitor::visit(AssignStm *stm) {
+int LocalsCounterVisitor::visit(AssignStm *stm) {
     return 0;
 }
 
-int TypeCheckerVisitor::visit(WhileStm *stm) {
+int LocalsCounterVisitor::visit(WhileStm *stm) {
     return 0;
 }
-int TypeCheckerVisitor::visit(ForStm *stm) {
+int LocalsCounterVisitor::visit(ForStm *stm) {
     int saved = locales;
 
     // initDec suma locales, si existe
@@ -400,14 +403,14 @@ int TypeCheckerVisitor::visit(ForStm *stm) {
     return 0;
 }
 
-int TypeCheckerVisitor::visit(ExprStm *stm) {
+int LocalsCounterVisitor::visit(ExprStm *stm) {
     return 0;
 }
 
-int TypeCheckerVisitor::visit(FcallExp *fcall) {
+int LocalsCounterVisitor::visit(FcallExp *fcall) {
     return 0;
 }
 
-int TypeCheckerVisitor::visit(ReturnStm *r) {
+int LocalsCounterVisitor::visit(ReturnStm *r) {
     return 0;
 }

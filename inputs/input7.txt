@@ -1,0 +1,10 @@
+int main() {
+    int x;
+    bool b;
+
+    b = 1 < 2;
+    x = b + 3;
+
+    printf(x);
+    return 0;
+}

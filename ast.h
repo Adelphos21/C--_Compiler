@@ -5,9 +5,11 @@
 #include <list>
 #include <ostream>
 #include <vector>
+#include "semantic_types.h"
 using namespace std;
 
 class Visitor;
+class TypeVisitor;
 class VarDec;
 class Body;
 class Exp;
@@ -31,6 +33,7 @@ enum BinaryOp {
 class Exp {
 public:
     virtual int  accept(Visitor* visitor) = 0;
+    virtual Type* accept(TypeVisitor* v) = 0;
     virtual ~Exp() = 0;  // Destructor puro → clase abstracta
     static string binopToChar(BinaryOp op);  // Conversión operador → string
 };
@@ -45,6 +48,8 @@ public:
     BinaryExp(Exp* l, Exp* r, BinaryOp op);
     ~BinaryExp();
 
+    Type* accept(TypeVisitor* visitor);
+
 };
 
 // Expresión numérica
@@ -54,6 +59,8 @@ public:
     int accept(Visitor* visitor);
     NumberExp(int v);
     ~NumberExp();
+
+    Type* accept(TypeVisitor* visitor);
 };
 
 // Expresión numérica
@@ -63,13 +70,27 @@ public:
     int accept(Visitor* visitor);
     IdExp(string v);
     ~IdExp();
+
+    Type* accept(TypeVisitor* visitor);
 };
 
+class BoolExp : public Exp {
+public:
+    int valor;
+
+    BoolExp(){};
+    ~BoolExp(){};
+
+    int accept(Visitor* visitor);
+    Type* accept(TypeVisitor* visitor); // nuevo
+};
 
 class Stm{
 public:
     virtual int accept(Visitor* visitor) = 0;
     virtual ~Stm() = 0;
+
+    virtual void accept(TypeVisitor* visitor) = 0;
 };
 
 class VarDec{
@@ -79,6 +100,8 @@ public:
     VarDec();
     int accept(Visitor* visitor);
     ~VarDec();
+
+    void accept(TypeVisitor* visitor);
 };
 
 
@@ -89,10 +112,9 @@ public:
     int accept(Visitor* visitor);
     Body();
     ~Body();
+
+    void accept(TypeVisitor* visitor);
 };
-
-
-
 
 class IfStm: public Stm {
 public:
@@ -102,6 +124,8 @@ public:
     IfStm(Exp* condition, Body* then, Body* els);
     int accept(Visitor* visitor);
     ~IfStm(){};
+
+    void accept(TypeVisitor* visitor);
 };
 
 class WhileStm: public Stm {
@@ -111,6 +135,8 @@ public:
     WhileStm(Exp* condition, Body* b);
     int accept(Visitor* visitor);
     ~WhileStm(){};
+
+    void accept(TypeVisitor* visitor);
 };
 
 class ForStm: public Stm {
@@ -124,6 +150,8 @@ public:
         : initDec(d), initAssign(a), condition(c), step(s), cuerpo(b) {}
     int accept(Visitor* visitor);
     ~ForStm(){};
+
+    void accept(TypeVisitor* visitor);
 };
 
 class AssignStm: public Stm {
@@ -133,6 +161,8 @@ public:
     AssignStm(string, Exp*);
     ~AssignStm();
     int accept(Visitor* visitor);
+
+    void accept(TypeVisitor* visitor);
 };
 
 class PrintStm: public Stm {
@@ -141,12 +171,9 @@ public:
     PrintStm(Exp*);
     ~PrintStm();
     int accept(Visitor* visitor);
+
+    void accept(TypeVisitor* visitor);
 };
-
-
-
-
-
 
 class ReturnStm: public Stm {
 public:
@@ -154,6 +181,8 @@ public:
     ReturnStm(){};
     ~ReturnStm(){};
     int accept(Visitor* visitor);
+
+    void accept(TypeVisitor* visitor);
 };
 
 class FcallExp: public Exp {
@@ -161,12 +190,12 @@ public:
     string nombre;
     vector<Exp*> argumentos;
     int accept(Visitor* visitor);
+
     FcallExp(){};
     ~FcallExp(){};
+
+    Type* accept(TypeVisitor* visitor);
 };
-
-
-
 
 class FunDec{
 public:
@@ -178,6 +207,8 @@ public:
     int accept(Visitor* visitor);
     FunDec(){};
     ~FunDec(){};
+
+    void accept(TypeVisitor* visitor);
 };
 
 class Program{
@@ -187,6 +218,8 @@ public:
     Program(){};
     ~Program(){};
     int accept(Visitor* visitor);
+
+    void accept(TypeVisitor* visitor);
 };
 
 class ExprStm: public Stm {
@@ -195,6 +228,9 @@ public:
     ExprStm(Exp* e) : e(e) {}
     ~ExprStm() {}
     int accept(Visitor* visitor);
+    void accept(TypeVisitor* v) override { 
+        e->accept(v); 
+    }
 };
 
 
