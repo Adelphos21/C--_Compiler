@@ -42,7 +42,7 @@ public:
     virtual int visit(ExprStm* stm) = 0;
 };
 
-class TypeCheckerVisitor : public Visitor {
+class LocalsCounterVisitor : public Visitor {
 public:
     unordered_map<string,int> fun_locales;
     int locales;
@@ -68,7 +68,7 @@ class GenCodeVisitor : public Visitor {
 private:
     std::ostream& out;
 public:
-    TypeCheckerVisitor tipe;
+    LocalsCounterVisitor tipe;
     unordered_map<string,int> fun_reserva;
     GenCodeVisitor(std::ostream& out) : out(out) {}
     int generar(Program* program);
