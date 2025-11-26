@@ -9,6 +9,10 @@ using namespace std;
 
 class Visitor;
 class VarDec;
+class Body;
+class Exp;
+class Stm;
+class AssignStm;
 
 // Operadores binarios soportados
 enum BinaryOp { 
@@ -17,7 +21,10 @@ enum BinaryOp {
     MUL_OP, 
     DIV_OP,
     POW_OP,
-    LE_OP
+    LE_OP,
+    LEQ_OP,
+    GE_OP,
+    GEQ_OP
 };
 
 // Clase abstracta Exp
@@ -106,7 +113,18 @@ public:
     ~WhileStm(){};
 };
 
-
+class ForStm: public Stm {
+public:
+    VarDec* initDec;       
+    AssignStm* initAssign; 
+    Exp* condition;
+    AssignStm* step;
+    Body* cuerpo;
+    ForStm(VarDec* d, AssignStm* a, Exp* c, AssignStm* s, Body* b)
+        : initDec(d), initAssign(a), condition(c), step(s), cuerpo(b) {}
+    int accept(Visitor* visitor);
+    ~ForStm(){};
+};
 
 class AssignStm: public Stm {
 public:
@@ -168,6 +186,14 @@ public:
     list<FunDec*> fdlist;
     Program(){};
     ~Program(){};
+    int accept(Visitor* visitor);
+};
+
+class ExprStm: public Stm {
+public:
+    Exp* e;
+    ExprStm(Exp* e) : e(e) {}
+    ~ExprStm() {}
     int accept(Visitor* visitor);
 };
 

@@ -14,6 +14,9 @@ int NumberExp::accept(Visitor* visitor) {
     return visitor->visit(this);
 }
 
+int ForStm::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
 
 int Program::accept(Visitor* visitor) {
     return visitor->visit(this);
@@ -60,15 +63,22 @@ int ReturnStm::accept(Visitor* visitor){
     return visitor->visit(this);
 }
 
+int ExprStm::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////////
 
 int GenCodeVisitor::generar(Program* program) {
+    tipe.tipe(program);
+    fun_reserva = tipe.fun_locales;
     program->accept(this);
         return 0;
 }
 
 int GenCodeVisitor::visit(Program* program) {
+    enviroment.add_level();
 out << ".data\nprint_fmt: .string \"%ld \\n\""<<endl;
 
     for (auto dec : program->vdlist){
@@ -86,6 +96,7 @@ out << ".data\nprint_fmt: .string \"%ld \\n\""<<endl;
     }
 
     out << ".section .note.GNU-stack,\"\",@progbits"<<endl;
+    enviroment.remove_level();
         return 0;
 }
 
@@ -94,14 +105,12 @@ int GenCodeVisitor::visit(VarDec* stm) {
         if (!entornoFuncion) {
             memoriaGlobal[var] = true;
         } else {
-            memoria[var] = offset;
+            enviroment.add_var(var, offset);
             offset -= 8;
         }
     }
         return 0;
 }
-
-
 
 int GenCodeVisitor::visit(NumberExp* exp) {
     out << " movq $" << exp->value << ", %rax"<<endl;
@@ -112,7 +121,7 @@ int GenCodeVisitor::visit(IdExp* exp) {
     if (memoriaGlobal.count(exp->value))
         out << " movq " << exp->value << "(%rip), %rax"<<endl;
     else
-        out << " movq " << memoria[exp->value] << "(%rbp), %rax"<<endl;
+        out << " movq " << (enviroment.lookup(exp->value)) << "(%rbp), %rax"<<endl;
     return 0;
 }
 
@@ -129,8 +138,27 @@ int GenCodeVisitor::visit(BinaryExp* exp) {
         case LE_OP:
             out << " cmpq %rcx, %rax\n"
                       << " movl $0, %eax\n"
-                      << " setle %al\n"
+                      << " setl %al\n"
                       << " movzbq %al, %rax\n";
+            break;
+        case LEQ_OP:
+            out << " cmpq %rcx, %rax\n"
+                <<   " movl $0, %eax\n"
+                <<   " setle %al\n"
+                <<   " movzbq %al, %rax\n";
+            break;
+
+        case GE_OP:
+            out << " cmpq %rcx, %rax\n"
+                <<   " movl $0, %eax\n"
+                <<   " setg %al\n"
+                <<   " movzbq %al, %rax\n";
+            break;
+        case GEQ_OP:
+            out << " cmpq %rcx, %rax\n"
+                <<   " movl $0, %eax\n"
+                <<   " setge %al\n"
+                <<   " movzbq %al, %rax\n";
             break;
     }
     return 0;
@@ -142,7 +170,7 @@ int GenCodeVisitor::visit(AssignStm* stm) {
     if (memoriaGlobal.count(stm->id))
         out << " movq %rax, " << stm->id << "(%rip)"<<endl;
     else
-        out << " movq %rax, " << memoria[stm->id] << "(%rbp)"<<endl;
+        out << " movq %rax, " << (enviroment.lookup(stm->id)) << "(%rbp)"<<endl;
             return 0;
 }
 
@@ -159,12 +187,14 @@ int GenCodeVisitor::visit(PrintStm* stm) {
 
 
 int GenCodeVisitor::visit(Body* b) {
+    enviroment.add_level();
     for (auto dec : b->declarations){
         dec->accept(this);
     }
     for (auto s : b->StmList){
         s->accept(this);
     }
+    enviroment.remove_level();
         return 0;
 }
 
@@ -193,6 +223,36 @@ int GenCodeVisitor::visit(WhileStm* stm) {
     return 0;
 }
 
+int GenCodeVisitor::visit(ForStm* stm) {
+    int label = labelcont++;
+    enviroment.add_level();  //scope del for
+
+    // ---- initDec ----
+    if (stm->initDec){
+        stm->initDec->accept(this);
+    }
+    
+    // ---- initAssign ----
+    if (stm->initAssign){
+        stm->initAssign->accept(this);
+    }
+
+    out << "for_" << label << ":\n";
+
+    stm->condition->accept(this);
+    out << " cmpq $0, %rax\n";
+    out << " je endfor_" << label << "\n";
+    
+    stm->cuerpo->accept(this);
+    stm->step->accept(this);
+
+    out << " jmp for_" << label << "\n";
+    out << "endfor_" << label << ":\n";
+
+    enviroment.remove_level();
+
+    return 0;
+}
 
 int GenCodeVisitor::visit(ReturnStm* stm) {
     stm->e->accept(this);
@@ -202,7 +262,7 @@ int GenCodeVisitor::visit(ReturnStm* stm) {
 
 int GenCodeVisitor::visit(FunDec* f) {
     entornoFuncion = true;
-    memoria.clear();
+    enviroment.add_level();
     offset = -8;
     nombreFuncion = f->nombre;
     vector<std::string> argRegs = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
@@ -210,9 +270,10 @@ int GenCodeVisitor::visit(FunDec* f) {
     out << f->nombre <<  ":" << endl;
     out << " pushq %rbp" << endl;
     out << " movq %rsp, %rbp" << endl;
+    out << " subq $" << fun_reserva[f->nombre]*8 << ", %rsp" << endl;
     int size = f->Pnombres.size();
     for (int i = 0; i < size; i++) {
-        memoria[f->Pnombres[i]]=offset;
+        enviroment.add_var(f->Pnombres[i], offset);
         out << " movq " << argRegs[i] << "," << offset << "(%rbp)" << endl;
         offset -= 8;
     }
@@ -220,7 +281,7 @@ int GenCodeVisitor::visit(FunDec* f) {
         i->accept(this);
     }
     int reserva = -offset - 8;
-    out << " subq $" << reserva << ", %rsp" << endl;
+    
     for (auto i: f->cuerpo->StmList){
         i->accept(this);
     }
@@ -228,8 +289,15 @@ int GenCodeVisitor::visit(FunDec* f) {
     out << "leave" << endl;
     out << "ret" << endl;
     entornoFuncion = false;
+    enviroment.remove_level();
     return 0;
 }
+
+int GenCodeVisitor::visit(ExprStm* stm) {
+    stm->e->accept(this);
+    return 0;
+}
+
 
 int GenCodeVisitor::visit(FcallExp* exp) {
     vector<std::string> argRegs = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
@@ -239,5 +307,107 @@ int GenCodeVisitor::visit(FcallExp* exp) {
         out << " mov %rax, " << argRegs[i] <<endl;
     }
     out << "call " << exp->nombre << endl;
+    return 0;
+}
+
+/////////////////////////////////////////////
+/////////////////////////////////////////////
+///
+int TypeCheckerVisitor::tipe(Program *program) {
+    for(auto i: program->fdlist) {
+        i->accept(this);
+    }
+
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(FunDec *fd) {
+    int parametros = fd->Pnombres.size();
+    locales = 0;
+    fd->cuerpo->accept(this);
+    fun_locales[fd->nombre] = parametros + locales;
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(Body *body) {
+
+    for (auto i:body->declarations) {
+        i->accept(this);
+    }
+
+    for(auto i:body->StmList) {
+        i->accept(this);
+    }
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(VarDec *vd) {
+    locales += vd->vars.size();
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(IfStm *stm) {
+    int a = locales;
+    stm-> then -> accept(this);
+    int b = locales;
+    stm-> els  -> accept(this);
+    int c = locales;
+    locales = a + max(b-a,c-b);
+    return 0;
+}
+
+
+
+int TypeCheckerVisitor::visit(BinaryExp *exp) {
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(NumberExp *exp) {
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(IdExp *exp) {
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(Program *p) {
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(PrintStm *stm) {
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(AssignStm *stm) {
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(WhileStm *stm) {
+    return 0;
+}
+int TypeCheckerVisitor::visit(ForStm *stm) {
+    int saved = locales;
+
+    // initDec suma locales, si existe
+    if (stm->initDec){
+        locales += stm->initDec->vars.size();
+    }
+
+    // el cuerpo podría declarar más
+    stm->cuerpo->accept(this);
+
+    locales = max(locales, saved + (locales - saved));
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(ExprStm *stm) {
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(FcallExp *fcall) {
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(ReturnStm *r) {
     return 0;
 }

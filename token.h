@@ -15,28 +15,35 @@ public:
         MUL,     // *
         DIV,     // /
         POW,     // **
+        LBRACKET,  // {
+        RBRACKET,  // }
         LPAREN,  // (
         RPAREN,  // )
         SQRT,    // sqrt
         NUM,     // Número
         ERR,     // Error
         ID,      // ID
-        LE,
+        LE,      // <
+        LEQ,     // <=
+        GE,      // >
+        GEQ,     // >=
         FUN,
         ENDFUN,
         RETURN,
-        SEMICOL,    
+        SEMICOL, // ;    
         ASSIGN,
-        PRINT,
+        //PRINT,
+        PRINTF,
         IF,
         WHILE,
+        FOR,
         DO,
         THEN,
         ENDIF,
         ENDWHILE,
         ELSE,
         END,      // Fin de entrada
-        VAR,
+        //VAR,
         COMA,
         TRUE,
         FALSE

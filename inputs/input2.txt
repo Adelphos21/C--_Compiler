@@ -1,8 +1,15 @@
-fun int main()
-    var int a;
-    a = 10;
-    if a < 20 then
-        print(a)
-    endif
-    return(0)
-endfun
+int main(){
+    int x;
+    int y;
+    int z;
+
+    x = 10;
+    y = 5;
+
+    if(y < x){
+        x = 20;
+    } 
+    z = 1000000;
+
+    return 0;
+}

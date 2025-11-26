@@ -5,6 +5,7 @@
 #include <vector>
 #include <unordered_map>
 #include <string>
+#include "environment.h"
 using namespace std;
 
 class BinaryExp;
@@ -30,6 +31,7 @@ public:
     virtual int visit(Program* p) = 0;
     virtual int visit(PrintStm* stm) = 0;
     virtual int visit(WhileStm* stm) = 0;
+     virtual int visit(ForStm* Stm) = 0;
     virtual int visit(IfStm* stm) = 0;
     virtual int visit(AssignStm* stm) = 0;
     virtual int visit(Body* body) = 0;
@@ -37,21 +39,14 @@ public:
     virtual int visit(FcallExp* fcall) = 0;
     virtual int visit(ReturnStm* r) = 0;
     virtual int visit(FunDec* fd) = 0;
+    virtual int visit(ExprStm* stm) = 0;
 };
 
-
-class GenCodeVisitor : public Visitor {
-private:
-    std::ostream& out;
+class TypeCheckerVisitor : public Visitor {
 public:
-    GenCodeVisitor(std::ostream& out) : out(out) {}
-    int generar(Program* program);
-    unordered_map<string, int> memoria;
-    unordered_map<string, bool> memoriaGlobal;
-    int offset = -8;
-    int labelcont = 0;
-    bool entornoFuncion = false;
-    string nombreFuncion;
+    unordered_map<string,int> fun_locales;
+    int locales;
+    int tipe(Program* program);
     int visit(BinaryExp* exp) override;
     int visit(NumberExp* exp) override;
     int visit(IdExp* exp) override;
@@ -65,6 +60,40 @@ public:
     int visit(FcallExp* fcall) override;
     int visit(ReturnStm* r) override;
     int visit(FunDec* fd) override;
+    int visit(ForStm* stm) override;
+    int visit(ExprStm* stm) override;
+};
+
+class GenCodeVisitor : public Visitor {
+private:
+    std::ostream& out;
+public:
+    TypeCheckerVisitor tipe;
+    unordered_map<string,int> fun_reserva;
+    GenCodeVisitor(std::ostream& out) : out(out) {}
+    int generar(Program* program);
+    //unordered_map<string, int> memoria;
+    Environment<int> enviroment;
+    unordered_map<string, bool> memoriaGlobal;
+    int offset = -8;
+    int labelcont = 0;
+    bool entornoFuncion = false;
+    string nombreFuncion;
+    int visit(BinaryExp* exp) override;
+    int visit(NumberExp* exp) override;
+    int visit(IdExp* exp) override;
+    int visit(Program* p) override ;
+    int visit(PrintStm* stm) override;
+    int visit(AssignStm* stm) override;
+    int visit(WhileStm* stm) override;
+    int visit(ForStm* stm) override;
+    int visit(IfStm* stm) override;
+    int visit(Body* body) override;
+    int visit(VarDec* vd) override;
+    int visit(FcallExp* fcall) override;
+    int visit(ReturnStm* r) override;
+    int visit(FunDec* fd) override;
+    int visit(ExprStm* stm) override;
 };
 
 #endif // VISITOR_H

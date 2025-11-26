@@ -14,6 +14,9 @@ string Exp::binopToChar(BinaryOp op) {
         case DIV_OP:   return "/";
         case POW_OP:   return "**";
         case LE_OP:   return "<";
+        case LEQ_OP:   return "<=";
+        case GE_OP:   return ">";
+        case GEQ_OP:   return ">=";
         default:       return "?";
     }
 }
@@ -61,8 +64,6 @@ AssignStm::AssignStm(string variable,Exp* expresion){
     id = variable;
     e = expresion;
 }
-
-
 
 VarDec::VarDec() {}
 

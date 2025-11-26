@@ -9,39 +9,77 @@
 using namespace std;
 
 int main(int argc, const char* argv[]) {
-    // Verificar número de argumentos
+    // ==========================
+    // Validar argumentos
+    // ==========================
     if (argc != 2) {
         cout << "Número incorrecto de argumentos.\n";
         cout << "Uso: " << argv[0] << " <archivo_de_entrada>" << endl;
         return 1;
     }
 
-    // Abrir archivo de entrada
-    ifstream infile(argv[1]);
+    const char* filename = argv[1];
+
+    // ==========================
+    // Leer archivo completo
+    // ==========================
+    ifstream infile(filename);
     if (!infile.is_open()) {
-        cout << "No se pudo abrir el archivo: " << argv[1] << endl;
+        cout << "No se pudo abrir el archivo: " << filename << endl;
         return 1;
     }
 
-    // Leer contenido completo del archivo en un string
     string input, line;
     while (getline(infile, line)) {
         input += line + '\n';
     }
     infile.close();
 
-    // Crear instancias de Scanner 
-    Scanner scanner1(input.c_str());
+    // ======================================================
+    // 1) SCANNER: imprimir tokens como antes (Scanner exitoso)
+    // ======================================================
+    {
+        Scanner scanner1(input.c_str());
+        // Esto genera <base>_tokens.txt en el mismo directorio
+        // con el formato:
+        // Scanner
+        //
+        // TOKEN(...)
+        // ...
+        // Scanner exitoso
+        ejecutar_scanner(&scanner1, string(filename));
+    }
 
-    // Crear instancias de Parser
-    Parser parser(&scanner1);
+    // ======================================================
+    // 2) PARSER: construir AST
+    // ======================================================
+    Program* program = nullptr;
+    {
+        Scanner scanner2(input.c_str());
+        Parser parser(&scanner2);
 
-    // Parsear y generar AST
-  
-    Program* program = parser.parseProgram();     
-        string inputFile(argv[1]);
+        try {
+            program = parser.parseProgram();
+        } catch (const std::exception& e) {
+            cerr << "Error al parsear: " << e.what() << endl;
+            return 1;
+        }
+
+        cout << "Parseo exitoso" << endl;
+    }
+
+    // ======================================================
+    // 3) GENERADOR DE CÓDIGO X86: GenCodeVisitor
+    // ======================================================
+    {
+        // Sacar el nombre base del archivo de entrada
+        string inputFile(filename);
         size_t dotPos = inputFile.find_last_of('.');
-        string baseName = (dotPos == string::npos) ? inputFile : inputFile.substr(0, dotPos);
+        string baseName = (dotPos == string::npos)
+                            ? inputFile
+                            : inputFile.substr(0, dotPos);
+
+        // El .s se crea al lado del input, e.g. inputs/input1.s
         string outputFilename = baseName + ".s";
         ofstream outfile(outputFilename);
         if (!outfile.is_open()) {
@@ -49,10 +87,13 @@ int main(int argc, const char* argv[]) {
             return 1;
         }
 
-    cout << "Generando codigo ensamblador en " << outputFilename << endl;
-    GenCodeVisitor codigo(outfile);
-    codigo.generar(program);
-    outfile.close();
-    
+        cout << "Generando codigo ensamblador en " << outputFilename << endl;
+
+        GenCodeVisitor codigo(outfile);
+        codigo.generar(program);
+
+        outfile.close();
+    }
+
     return 0;
 }

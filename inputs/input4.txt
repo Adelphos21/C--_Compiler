@@ -1,0 +1,28 @@
+int main() {
+    int x;
+    x = 0;
+
+    if (12 < 3) {
+        int a, b;
+
+        if (12 < 3) {
+            int c, d;
+            c = 10;
+            d = 20;
+            printf(c);
+            printf(d);
+        } else {
+            int e;
+            e = 30;
+            printf(e);
+        }
+
+        printf(x);
+    } else {
+        int f, g, h, i, j, k;
+        j = 40;
+        printf(j);
+    }
+
+    return 0;
+}
