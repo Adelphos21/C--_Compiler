@@ -74,6 +74,23 @@ Token* Scanner::nextToken() {
         else return new Token(Token::ID, input, first, current - first);
     }
     // Operadores
+
+    else if (c == '"') {
+        current++;
+        first = current;
+
+        while (current < input.length() && input[current] != '"'){
+            current++;
+        }
+            
+        if (current < input.length() && input[current] == '"') {
+            int len = current - first;  // NO incluye la comilla final
+            current++; // saltar la comilla final
+            token = new Token(Token::STRING, input, first, len);
+        } else {
+            token = new Token(Token::ERR, input, first, current - first);
+        }
+    }
     else if (strchr("+/-*();=<>,{}[]", c)) {
         switch (c) {
             case '<':

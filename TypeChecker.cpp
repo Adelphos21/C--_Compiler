@@ -26,6 +26,7 @@ void FunDec::accept(TypeVisitor* v) { v->visit(this); }
 void Body::accept(TypeVisitor* v) { v->visit(this); }
 void Program::accept(TypeVisitor* v) { v->visit(this); }
 
+Type* StringExp::accept(TypeVisitor* v){ return v->visit(this); }
 // ===========================================================
 //   Constructor del TypeChecker
 // ===========================================================
@@ -34,6 +35,7 @@ TypeChecker::TypeChecker() {
     intType = new Type(Type::INT);
     boolType = new Type(Type::BOOL);
     voidType = new Type(Type::VOID);
+    charType = new Type(Type::CHAR);
 }
 
 // ===========================================================
@@ -136,8 +138,16 @@ void TypeChecker::visit(FunDec* f) {
 
 void TypeChecker::visit(PrintStm* stm) {
     Type* t = stm->e->accept(this);
-    if (!(t->match(intType) || t->match(boolType))) {
-        cerr << "Error: tipo inválido en print (solo int o bool)." << endl;
+
+    bool ok_basic = t->match(intType) || t->match(boolType);
+
+    bool ok_string =
+        (t->ttype == Type::ARRAY &&
+         t->base && t->base->ttype == Type::CHAR);
+
+
+    if (!(ok_basic || ok_string )) {
+        cerr << "Error: tipo inválido en print.\n";
         exit(0);
     }
 }
@@ -293,4 +303,16 @@ void TypeChecker::visit(ArrayAssignStm* s){
     if(!leftT->match(rightT)){
         cerr << "tipos incompatibles en asignacion a array\n"; exit(0);
     }
+}
+
+// ===========================================================
+//   Strings
+// ===========================================================
+
+Type* TypeChecker::visit(StringExp* e) {
+    // string literal: array de char
+    Type* arr = new Type(Type::ARRAY);
+    arr->base = charType;
+    arr->length = static_cast<int>(e->value.size()) + 1; //longitud len+1 (por el '\0')
+    return arr;
 }

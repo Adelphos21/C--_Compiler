@@ -96,6 +96,16 @@ public:
     ~ArrayAccessExp(){ delete index; }
 };
 
+class StringExp : public Exp {
+public:
+    string value;   // el contenido sin las comillas
+
+    StringExp(const string& v) : value(v) {}
+    ~StringExp() {}
+
+    int  accept(Visitor* v) override;
+    Type* accept(TypeVisitor* v) override;
+};
 
 class Stm{
 public:

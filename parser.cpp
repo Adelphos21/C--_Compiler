@@ -416,7 +416,9 @@ Exp* Parser::parseF() {
             return new IdExp(nom);
             }
     }
-    else {
+    else if(match(Token::STRING)) {
+        return new StringExp(previous->text);   
+    } else {
         throw runtime_error("Error sintáctico");
     }
 }

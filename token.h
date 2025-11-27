@@ -48,7 +48,8 @@ public:
         //VAR,
         COMA,
         TRUE,
-        FALSE
+        FALSE,
+        STRING   // string literal
     };
 
     // Atributos
