@@ -302,7 +302,7 @@ else if (match(Token::IF)) {
 
 Exp* Parser::parseCE() {
     Exp* l = parseBE();
-    
+
     if (match(Token::LE)) {              // <
         BinaryOp op = LE_OP;
         Exp* r = parseBE();
@@ -323,6 +323,16 @@ Exp* Parser::parseCE() {
         Exp* r = parseBE();
         l = new BinaryExp(l, r, op);
     }
+    
+    if(match(Token::TERNARY)){
+        Exp* trueexpr = parseCE();
+        if(!match(Token::COLON)){
+            throw runtime_error("Se esperaba ':' en operador ternario");
+        }
+        Exp* falseexpr = parseCE();
+        return new TernaryExp(l, trueexpr, falseexpr); 
+    }
+    
     return l;
 }
 

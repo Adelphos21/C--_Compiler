@@ -56,7 +56,8 @@ ostream& operator<<(ostream& outs, const Token& tok) {
         case Token::ELSE:    outs << "TOKEN(ELSE, \""    << tok.text << "\")"; break;
         //case Token::VAR:    outs << "TOKEN(VAR, \""    << tok.text << "\")"; break;
         case Token::COMA:    outs << "TOKEN(COMA, \""    << tok.text << "\")"; break;
-
+        case Token::TERNARY:    outs << "TOKEN(TERNARY, \""    << tok.text << "\")"; break;
+        case Token::COLON:    outs << "TOKEN(COLON, \""    << tok.text << "\")"; break;
         case Token::FUN:    outs << "TOKEN(FUN, \""    << tok.text << "\")"; break;
         case Token::ENDFUN:    outs << "TOKEN(ENDFUN, \""    << tok.text << "\")"; break;
         case Token::RETURN:    outs << "TOKEN(RETURN, \""    << tok.text << "\")"; break;

@@ -74,7 +74,6 @@ Token* Scanner::nextToken() {
         else return new Token(Token::ID, input, first, current - first);
     }
     // Operadores
-
     else if (c == '"') {
         current++;
         first = current;
@@ -91,7 +90,8 @@ Token* Scanner::nextToken() {
             token = new Token(Token::ERR, input, first, current - first);
         }
     }
-    else if (strchr("+/-*();=<>,{}[]", c)) {
+    else if (strchr("+/-*();=<>,{}[]?:", c)) {
+
         switch (c) {
             case '<':
             if((input[current+1]=='=')){
@@ -129,6 +129,8 @@ Token* Scanner::nextToken() {
             case '=': token = new Token(Token::ASSIGN,c); break;
             case ';': token = new Token(Token::SEMICOL,c); break;
             case ',': token = new Token(Token::COMA,c); break;
+            case '?': token = new Token(Token::TERNARY,c); break;
+            case ':': token = new Token(Token::COLON, c); break;
 
         }
         current++;

@@ -31,7 +31,11 @@ BinaryExp::~BinaryExp() {
     delete right;
 }
 
+// ------------------ TernaryExp ------------------
 
+TernaryExp::TernaryExp(Exp* cond, Exp* trueExp, Exp* falseExp):
+     condition(cond), trueExpr(trueExp), falseExpr(falseExp) {}
+TernaryExp::~TernaryExp() {}
 
 // ------------------ NumberExp ------------------
 NumberExp::NumberExp(int v) : value(v) {}
