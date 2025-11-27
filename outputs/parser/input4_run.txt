@@ -1,0 +1,7 @@
+=== STDOUT ===
+Parser exitoso
+Parseo exitoso
+Generando codigo ensamblador en inputs/input4.s
+Revisión exitosa
+
+=== STDERR ===

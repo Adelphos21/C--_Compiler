@@ -1,0 +1,2589 @@
+ast.cpp
+
+#include "ast.h"
+#include <iostream>
+
+using namespace std;
+
+// ------------------ Exp ------------------
+Exp::~Exp() {}
+
+string Exp::binopToChar(BinaryOp op) {
+    switch (op) {
+        case PLUS_OP:  return "+";
+        case MINUS_OP: return "-";
+        case MUL_OP:   return "*";
+        case DIV_OP:   return "/";
+        case POW_OP:   return "**";
+        case LE_OP:   return "<";
+        case LEQ_OP:   return "<=";
+        case GE_OP:   return ">";
+        case GEQ_OP:   return ">=";
+        default:       return "?";
+    }
+}
+
+// ------------------ BinaryExp ------------------
+BinaryExp::BinaryExp(Exp* l, Exp* r, BinaryOp o)
+    : left(l), right(r), op(o) {}
+
+    
+BinaryExp::~BinaryExp() {
+    delete left;
+    delete right;
+}
+
+
+
+// ------------------ NumberExp ------------------
+NumberExp::NumberExp(int v) : value(v) {}
+
+NumberExp::~NumberExp() {}
+
+
+// ------------------idExp ------------------
+IdExp::IdExp(string v) : value(v) {}
+
+IdExp::~IdExp() {}
+
+
+Stm::~Stm(){}
+
+PrintStm::~PrintStm(){}
+
+AssignStm::~AssignStm(){}
+
+IfStm::IfStm(Exp* c, Body* t, Body* e): condition(c), then(t), els(e) {}
+
+WhileStm::WhileStm(Exp* c, Body* t): condition(c), b(t) {}
+
+
+PrintStm::PrintStm(Exp* expresion){
+    e=expresion;
+}
+
+AssignStm::AssignStm(string variable,Exp* expresion){
+    id = variable;
+    e = expresion;
+}
+
+VarDec::VarDec() {}
+
+VarDec::~VarDec() {}
+
+Body::Body(){
+    declarations=list<VarDec*>();
+    StmList=list<Stm*>();
+}
+
+Body::~Body(){}
+
+
+ast.h:
+
+#ifndef AST_H
+#define AST_H
+
+#include <string>
+#include <list>
+#include <ostream>
+#include <vector>
+#include "semantic_types.h"
+using namespace std;
+
+class Visitor;
+class TypeVisitor;
+class VarDec;
+class Body;
+class Exp;
+class Stm;
+class AssignStm;
+
+// Operadores binarios soportados
+enum BinaryOp { 
+    PLUS_OP, 
+    MINUS_OP, 
+    MUL_OP, 
+    DIV_OP,
+    POW_OP,
+    LE_OP,
+    LEQ_OP,
+    GE_OP,
+    GEQ_OP
+};
+
+// Clase abstracta Exp
+class Exp {
+public:
+    virtual int  accept(Visitor* visitor) = 0;
+    virtual Type* accept(TypeVisitor* v) = 0;
+    virtual ~Exp() = 0;  // Destructor puro → clase abstracta
+    static string binopToChar(BinaryOp op);  // Conversión operador → string
+};
+
+// Expresión binaria
+class BinaryExp : public Exp {
+public:
+    Exp* left;
+    Exp* right;
+    BinaryOp op;
+    int accept(Visitor* visitor);
+    BinaryExp(Exp* l, Exp* r, BinaryOp op);
+    ~BinaryExp();
+
+    Type* accept(TypeVisitor* visitor);
+
+};
+
+// Expresión numérica
+class NumberExp : public Exp {
+public:
+    int value;
+    int accept(Visitor* visitor);
+    NumberExp(int v);
+    ~NumberExp();
+
+    Type* accept(TypeVisitor* visitor);
+};
+
+// Expresión numérica
+class IdExp : public Exp {
+public:
+    string value;
+    int accept(Visitor* visitor);
+    IdExp(string v);
+    ~IdExp();
+
+    Type* accept(TypeVisitor* visitor);
+};
+
+class BoolExp : public Exp {
+public:
+    int valor;
+
+    BoolExp(){};
+    ~BoolExp(){};
+
+    int accept(Visitor* visitor);
+    Type* accept(TypeVisitor* visitor); // nuevo
+};
+
+class ArrayAccessExp : public Exp {
+public:
+    string id;
+    Exp* index;
+
+    ArrayAccessExp(string id, Exp* index): id(id), index(index) {}
+    int accept(Visitor* v) override;
+    Type* accept(TypeVisitor* v) override;
+    ~ArrayAccessExp(){ delete index; }
+};
+
+class StringExp : public Exp {
+public:
+    string value;   // el contenido sin las comillas
+
+    StringExp(const string& v) : value(v) {}
+    ~StringExp() {}
+
+    int  accept(Visitor* v) override;
+    Type* accept(TypeVisitor* v) override;
+};
+
+class Stm{
+public:
+    virtual int accept(Visitor* visitor) = 0;
+    virtual ~Stm() = 0;
+
+    virtual void accept(TypeVisitor* visitor) = 0;
+};
+
+class ArrayAssignStm : public Stm {
+public:
+    string id;
+    Exp* index;
+    Exp* e;
+
+    ArrayAssignStm(string id, Exp* index, Exp* e)
+        : id(id), index(index), e(e) {}
+
+    int accept(Visitor* v) override;
+    void accept(TypeVisitor* v) override;
+    ~ArrayAssignStm(){ delete index; delete e; }
+};
+
+
+struct VarItem {
+    string name;
+    bool isArray;
+    int length; // solo válido si isArray=true
+    VarItem(string n, bool arr=false, int len=0): name(n), isArray(arr), length(len) {}
+};
+
+class VarDec{
+public:
+    string type;
+    list<VarItem> vars;
+
+    VarDec();
+    int accept(Visitor* visitor);
+    void accept(TypeVisitor* visitor);
+    ~VarDec();
+};
+
+
+class Body{
+public:
+    list<Stm*> StmList;
+    list<VarDec*> declarations;
+    int accept(Visitor* visitor);
+    Body();
+    ~Body();
+
+    void accept(TypeVisitor* visitor);
+};
+
+class IfStm: public Stm {
+public:
+    Exp* condition;
+    Body* then;
+    Body* els;
+    IfStm(Exp* condition, Body* then, Body* els);
+    int accept(Visitor* visitor);
+    ~IfStm(){};
+
+    void accept(TypeVisitor* visitor);
+};
+
+class WhileStm: public Stm {
+public:
+    Exp* condition;
+    Body* b;
+    WhileStm(Exp* condition, Body* b);
+    int accept(Visitor* visitor);
+    ~WhileStm(){};
+
+    void accept(TypeVisitor* visitor);
+};
+
+class ForStm: public Stm {
+public:
+    VarDec* initDec;       
+    AssignStm* initAssign; 
+    Exp* condition;
+    AssignStm* step;
+    Body* cuerpo;
+    ForStm(VarDec* d, AssignStm* a, Exp* c, AssignStm* s, Body* b)
+        : initDec(d), initAssign(a), condition(c), step(s), cuerpo(b) {}
+    int accept(Visitor* visitor);
+    ~ForStm(){};
+
+    void accept(TypeVisitor* visitor);
+};
+
+class AssignStm: public Stm {
+public:
+    string id;
+    Exp* e;
+    AssignStm(string, Exp*);
+    ~AssignStm();
+    int accept(Visitor* visitor);
+
+    void accept(TypeVisitor* visitor);
+};
+
+class PrintStm: public Stm {
+public:
+    Exp* e;
+    PrintStm(Exp*);
+    ~PrintStm();
+    int accept(Visitor* visitor);
+
+    void accept(TypeVisitor* visitor);
+};
+
+class ReturnStm: public Stm {
+public:
+    Exp* e;
+    ReturnStm(){};
+    ~ReturnStm(){};
+    int accept(Visitor* visitor);
+
+    void accept(TypeVisitor* visitor);
+};
+
+class FcallExp: public Exp {
+public:
+    string nombre;
+    vector<Exp*> argumentos;
+    int accept(Visitor* visitor);
+
+    FcallExp(){};
+    ~FcallExp(){};
+
+    Type* accept(TypeVisitor* visitor);
+};
+
+class FunDec{
+public:
+    string nombre;
+    string tipo;
+    Body* cuerpo;
+    vector<string> Ptipos;
+    vector<string> Pnombres;
+    int accept(Visitor* visitor);
+    FunDec(){};
+    ~FunDec(){};
+
+    void accept(TypeVisitor* visitor);
+};
+
+class Program{
+public:
+    list<VarDec*> vdlist;
+    list<FunDec*> fdlist;
+    Program(){};
+    ~Program(){};
+    int accept(Visitor* visitor);
+
+    void accept(TypeVisitor* visitor);
+};
+
+class ExprStm: public Stm {
+public:
+    Exp* e;
+    ExprStm(Exp* e) : e(e) {}
+    ~ExprStm() {}
+    int accept(Visitor* visitor);
+    void accept(TypeVisitor* v) override { 
+        e->accept(v); 
+    }
+};
+
+
+
+#endif // AST_H
+
+
+
+environment.h:
+
+
+#ifndef ENVIRONMENT_H
+#define ENVIRONMENT_H
+
+#include <unordered_map>
+#include <vector>
+#include <string>
+#include <iostream>
+
+using namespace std;
+
+
+template <typename T>
+class Environment {
+private:
+    vector<unordered_map<string, T>> ribs;
+
+    int search_rib(const string& var) const {
+        for (int idx = static_cast<int>(ribs.size()) - 1; idx >= 0; --idx) {
+            auto it = ribs[idx].find(var);
+            if (it != ribs[idx].end())  // encontrado
+                return idx;
+        }
+        return -1; // no encontrado
+    }
+
+public:
+    Environment() = default;
+
+    // Limpia completamente el entorno
+    void clear() {
+        ribs.clear();
+    }
+
+    // Agrega un nuevo nivel (scope)
+    void add_level() {
+        ribs.emplace_back();
+    }
+
+    // Agrega una variable con un valor inicial
+    void add_var(const string& var, const T& value) {
+        if (ribs.empty()) {
+            cerr << "[Error] Environment sin niveles: no se pueden agregar variables.\n";
+            exit(EXIT_FAILURE);
+        }
+        ribs.back()[var] = value;
+    }
+
+    // Agrega una variable con valor por defecto (solo si T es numérico o tiene constructor por defecto)
+    void add_var(const string& var) {
+        if (ribs.empty()) {
+            cerr << "[Error] Environment sin niveles: no se pueden agregar variables.\n";
+            exit(EXIT_FAILURE);
+        }
+        ribs.back()[var] = T(); // inicializa con valor por defecto
+    }
+
+    // Elimina el nivel más interno
+    bool remove_level() {
+        if (!ribs.empty()) {
+            ribs.pop_back();
+            return true;
+        }
+        return false;
+    }
+
+    // Actualiza el valor de una variable existente
+    bool update(const string& x, const T& v) {
+        int idx = search_rib(x);
+        if (idx < 0) return false;
+        ribs[idx][x] = v;
+        return true;
+    }
+
+    // Verifica si una variable existe
+    bool check(const string& x) const {
+        return (search_rib(x) >= 0);
+    }
+
+    // Busca y devuelve el valor de una variable
+    // Si no existe, devuelve un valor por defecto de T
+    T lookup(const string& x) const {
+        int idx = search_rib(x);
+        if (idx < 0) {
+            cerr << "[Advertencia] Variable no encontrada: " << x << endl;
+            return T(); // valor por defecto
+        }
+        return ribs[idx].at(x);
+    }
+
+    // Busca y devuelve el valor en una referencia. Devuelve true si existe.
+    bool lookup(const string& x, T& v) const {
+        int idx = search_rib(x);
+        if (idx < 0) return false;
+        v = ribs[idx].at(x);
+        return true;
+    }
+};
+
+#endif // ENVIRONMENT_H
+
+
+
+main.cpp:
+
+
+#include <iostream>
+#include <fstream>
+#include <string>
+#include "scanner.h"
+#include "parser.h"
+#include "ast.h"
+#include "visitor.h"
+
+using namespace std;
+
+int main(int argc, const char* argv[]) {
+    // ==========================
+    // Validar argumentos
+    // ==========================
+    if (argc != 2) {
+        cout << "Número incorrecto de argumentos.\n";
+        cout << "Uso: " << argv[0] << " <archivo_de_entrada>" << endl;
+        return 1;
+    }
+
+    const char* filename = argv[1];
+
+    // ==========================
+    // Leer archivo completo
+    // ==========================
+    ifstream infile(filename);
+    if (!infile.is_open()) {
+        cout << "No se pudo abrir el archivo: " << filename << endl;
+        return 1;
+    }
+
+    string input, line;
+    while (getline(infile, line)) {
+        input += line + '\n';
+    }
+    infile.close();
+
+    // ======================================================
+    // 1) SCANNER: imprimir tokens como antes (Scanner exitoso)
+    // ======================================================
+    {
+        Scanner scanner1(input.c_str());
+        // Esto genera <base>_tokens.txt en el mismo directorio
+        // con el formato:
+        // Scanner
+        //
+        // TOKEN(...)
+        // ...
+        // Scanner exitoso
+        ejecutar_scanner(&scanner1, string(filename));
+    }
+
+    // ======================================================
+    // 2) PARSER: construir AST
+    // ======================================================
+    Program* program = nullptr;
+    {
+        Scanner scanner2(input.c_str());
+        Parser parser(&scanner2);
+
+        try {
+            program = parser.parseProgram();
+        } catch (const std::exception& e) {
+            cerr << "Error al parsear: " << e.what() << endl;
+            return 1;
+        }
+
+        cout << "Parseo exitoso" << endl;
+    }
+
+    // ======================================================
+    // 3) GENERADOR DE CÓDIGO X86: GenCodeVisitor
+    // ======================================================
+    {
+        // Sacar el nombre base del archivo de entrada
+        string inputFile(filename);
+        size_t dotPos = inputFile.find_last_of('.');
+        string baseName = (dotPos == string::npos)
+                            ? inputFile
+                            : inputFile.substr(0, dotPos);
+
+        // El .s se crea al lado del input, e.g. inputs/input1.s
+        string outputFilename = baseName + ".s";
+        ofstream outfile(outputFilename);
+        if (!outfile.is_open()) {
+            cerr << "Error al crear el archivo de salida: " << outputFilename << endl;
+            return 1;
+        }
+
+        cout << "Generando codigo ensamblador en " << outputFilename << endl;
+
+        GenCodeVisitor codigo(outfile);
+        codigo.generar(program);
+
+        outfile.close();
+    }
+
+    return 0;
+}
+
+
+parser.cpp
+
+#include<iostream>
+#include "token.h"
+#include "scanner.h"
+#include "ast.h"
+#include "parser.h"
+
+using namespace std;
+
+// =============================
+// Métodos de la clase Parser
+// =============================
+
+Parser::Parser(Scanner* sc) : scanner(sc) {
+    previous = nullptr;
+    current = scanner->nextToken();
+    if (current->type == Token::ERR) {
+        throw runtime_error("Error léxico");
+    }
+}
+
+bool Parser::match(Token::Type ttype) {
+    if (check(ttype)) {
+        advance();
+        return true;
+    }
+    return false;
+}
+
+bool Parser::check(Token::Type ttype) {
+    if (isAtEnd()) return false;
+    return current->type == ttype;
+}
+
+bool Parser::isType(const std::string& t) {
+    return t == "int" || t == "long" || t == "bool";
+}
+
+
+bool Parser::advance() {
+    if (!isAtEnd()) {
+        Token* temp = current;
+        if (previous) delete previous;
+        current = scanner->nextToken();
+        previous = temp;
+
+        if (check(Token::ERR)) {
+            throw runtime_error("Error lexico");
+        }
+        return true;
+    }
+    return false;
+}
+
+bool Parser::isAtEnd() {
+    return (current->type == Token::END);
+}
+
+
+// =============================
+// Reglas gramaticales
+// =============================
+
+Program* Parser::parseProgram() {
+    Program* p = new Program();
+
+    while (check(Token::ID)) {
+        match(Token::ID);
+        string tipo = previous->text;
+
+        match(Token::ID);
+        string nombre = previous->text;
+
+        if(check(Token::LPAREN)){   
+            p->fdlist.push_back(parseFunDec(tipo, nombre));
+      //} else if(check(Token::COMA) || check(Token::SEMICOL)) {
+        } else { 
+            p->vdlist.push_back(parseVarDec(tipo, nombre));
+        }
+    }
+
+    cout << "Parser exitoso" << endl;
+    return p;
+}
+
+VarDec* Parser::parseVarDec(const std::string& tipo, const std::string& firstVarName){
+    VarDec* vd = new VarDec();
+    vd->type = tipo;
+
+    //Parsear Arrays
+    if (match(Token::LARRAYBRACKET)) {           // '['
+        match(Token::NUM);
+        int len = stoi(previous->text);
+        match(Token::RARRAYBRACKET);            // ']'
+        vd->vars.push_back(VarItem(firstVarName,true,len));
+    } else {
+        vd->vars.push_back(VarItem(firstVarName,false,0));
+    }
+    
+    while(match(Token::COMA)) {
+        //Parsear Arrays de nuevo
+        match(Token::ID);
+        string id = previous->text;
+        if (match(Token::LARRAYBRACKET)) {           // '['
+            match(Token::NUM);
+            int len = stoi(previous->text);
+            match(Token::RARRAYBRACKET);            // ']'
+            vd->vars.push_back(VarItem(id,true,len));
+        } else {
+            vd->vars.push_back(VarItem(id,false,0));
+        }
+    }
+    match(Token::SEMICOL);
+    return vd;
+}
+
+FunDec *Parser::parseFunDec(const std::string& tipo, const std::string& nombre) {
+    FunDec* fd = new FunDec();
+    fd->tipo   = tipo;
+    fd->nombre = nombre;
+
+    match(Token::LPAREN);
+
+    if(check(Token::ID)) {
+        while(match(Token::ID)) {
+            fd->Ptipos.push_back(previous->text);
+            match(Token::ID);
+            fd->Pnombres.push_back(previous->text);
+            match(Token::COMA);
+        }
+    }
+    match(Token::RPAREN);
+    fd->cuerpo = parseBody();
+    return fd;
+}
+
+Body* Parser::parseBody(){
+    Body* b = new Body();
+
+    match(Token::LBRACKET);
+
+    while(check(Token::ID) && isType(current->text)) {
+        match(Token::ID);
+        std::string tipo = previous->text;
+
+        match(Token::ID);
+        std::string nombre = previous->text;
+
+        b->declarations.push_back(parseVarDec(tipo, nombre));
+    }
+
+    /*
+    if(!check(Token::RBRACKET)){
+        b->StmList.push_back(parseStm());
+        while(match(Token::SEMICOL)){
+            if (check(Token::RBRACKET)) break; // para no exigir ';' justo antes de '}'
+            b->StmList.push_back(parseStm());
+        }
+    }
+    */
+
+    if(!check(Token::RBRACKET)){
+        while(!check(Token::RBRACKET)){
+            match(Token::SEMICOL);
+            b->StmList.push_back(parseStm());
+            match(Token::SEMICOL);
+        }
+    }
+
+    match(Token::RBRACKET);
+    return b;
+}
+
+Stm* Parser::parseStm() {
+    Stm* a;
+    Exp* e;
+    string variable;
+    Body* tb = nullptr;
+    Body* fb = nullptr;
+
+    if(match(Token::ID)){
+        variable = previous->text;
+
+        if (match(Token::LARRAYBRACKET)) {
+            Exp* idx = parseCE();
+            match(Token::RARRAYBRACKET);
+            match(Token::ASSIGN);
+            e = parseCE();
+            return new ArrayAssignStm(variable, idx, e);
+        } else {
+            match(Token::ASSIGN);
+            e = parseCE();
+            return new AssignStm(variable, e);
+        }
+    }
+    else if(match(Token::PRINTF)){
+        match(Token::LPAREN);
+        e = parseCE();
+        match(Token::RPAREN);
+        return new PrintStm(e);
+    }
+    else if(match(Token::RETURN)) {
+        ReturnStm* r  = new ReturnStm();
+        if (match(Token::LPAREN)) {
+            r->e = parseCE();
+            match(Token::RPAREN);
+        } else {
+            r->e = parseCE();
+        }
+
+        return r;
+    }
+else if (match(Token::IF)) {
+        //if(e)
+        match(Token::LPAREN);
+        e = parseCE();
+        match(Token::RPAREN);
+
+        tb = parseBody();   // cuerpo para el "then"
+
+        if (match(Token::ELSE)) {
+            fb = parseBody();   // cuerpo para el "else"
+        }
+
+        a = new IfStm(e, tb, fb);
+    }
+    else if (match(Token::WHILE)) {
+        //while(e)
+        match(Token::LPAREN);
+        e = parseCE();
+        match(Token::RPAREN);
+
+        tb = parseBody();
+        a = new WhileStm(e, tb);
+    }
+
+    else if (match(Token::FOR)){
+        match(Token::LPAREN);
+
+        VarDec* initDec = nullptr;
+        AssignStm* initAssign = nullptr;
+
+        // for(int i = 0; ... )  o  for(i = 0; ...)
+        if (check(Token::ID) && isType(current->text)){
+            
+            match(Token::ID);
+            string tipo = previous->text;
+
+            match(Token::ID);
+            string id = previous->text;
+
+            initDec = new VarDec();
+            initDec->type = tipo;
+            initDec->vars.push_back(id);
+
+            if (match(Token::ASSIGN)) {
+                Exp* initExp = parseCE();
+                initAssign = new AssignStm(id, initExp);
+            }
+
+            Exp* initExp = nullptr;
+            if (match(Token::ASSIGN)) {
+                initExp = parseCE();
+            }
+        } else{
+            match(Token::ID);
+            string id = previous->text;
+
+            match(Token::ASSIGN);
+            Exp* e = parseCE();
+
+            initAssign = new AssignStm(id, e);
+        }
+
+        match(Token::SEMICOL);
+
+        // ---- CONDICIÓN ----
+        Exp* cond = parseCE();
+        match(Token::SEMICOL);
+
+        // ---- STEP ----
+        match(Token::ID);
+        string id = previous->text;
+
+        match(Token::ASSIGN);
+        Exp* e = parseCE();
+
+        AssignStm* step = new AssignStm(id, e);
+
+        match(Token::RPAREN);
+
+        
+        // ---- CUERPO ----
+        Body* cuerpo = parseBody();
+
+        a = new ForStm(initDec, initAssign, cond, step, cuerpo);
+    }
+    else{
+        throw runtime_error("Error sintáctico");
+    }
+    return a;
+}
+
+Exp* Parser::parseCE() {
+    Exp* l = parseBE();
+    
+    if (match(Token::LE)) {              // <
+        BinaryOp op = LE_OP;
+        Exp* r = parseBE();
+        l = new BinaryExp(l, r, op);
+    }
+    else if (match(Token::LEQ)) {        // <=
+        BinaryOp op = LEQ_OP;
+        Exp* r = parseBE();
+        l = new BinaryExp(l, r, op);
+    }
+    else if (match(Token::GE)) {         // >
+        BinaryOp op = GE_OP;
+        Exp* r = parseBE();
+        l = new BinaryExp(l, r, op);
+    }
+    else if (match(Token::GEQ)) {        // >=
+        BinaryOp op = GEQ_OP;
+        Exp* r = parseBE();
+        l = new BinaryExp(l, r, op);
+    }
+    return l;
+}
+
+
+Exp* Parser::parseBE() {
+    Exp* l = parseE();
+    while (match(Token::PLUS) || match(Token::MINUS)) {
+        BinaryOp op;
+        if (previous->type == Token::PLUS){
+            op = PLUS_OP;
+        }
+        else{
+            op = MINUS_OP;
+        }
+        Exp* r = parseE();
+        l = new BinaryExp(l, r, op);
+    }
+    return l;
+}
+
+
+Exp* Parser::parseE() {
+    Exp* l = parseT();
+    while (match(Token::MUL) || match(Token::DIV)) {
+        BinaryOp op;
+        if (previous->type == Token::MUL){
+            op = MUL_OP;
+        }
+        else{
+            op = DIV_OP;
+        }
+        Exp* r = parseT();
+        l = new BinaryExp(l, r, op);
+    }
+    return l;
+}
+
+
+Exp* Parser::parseT() {
+    Exp* l = parseF();
+    if (match(Token::POW)) {
+        BinaryOp op = POW_OP;
+        Exp* r = parseF();
+        l = new BinaryExp(l, r, op);
+    }
+    return l;
+}
+
+Exp* Parser::parseF() {
+    Exp* e;
+    string nom;
+    if (match(Token::NUM)) {
+        return new NumberExp(stoi(previous->text));
+    }
+    else if (match(Token::TRUE)) {
+        return new NumberExp(1);
+    }
+    else if (match(Token::FALSE)) {
+        return new NumberExp(0);
+    }
+    else if (match(Token::LPAREN))
+    {
+        e = parseCE();
+        match(Token::RPAREN);
+        return e;
+    }
+    else if (match(Token::ID)) {
+        nom = previous->text;
+        if(check(Token::LARRAYBRACKET)) {
+            match(Token::LARRAYBRACKET);
+            Exp* idx = parseCE();
+            match(Token::RARRAYBRACKET);
+            return new ArrayAccessExp(nom, idx);
+        }
+        if(check(Token::LPAREN)) {
+            match(Token::LPAREN);
+
+            FcallExp* fcall = new FcallExp();
+            fcall->nombre = nom;
+
+            if (!check(Token::RPAREN)) {
+                fcall->argumentos.push_back(parseCE());
+                while(match(Token::COMA)) {
+                    fcall->argumentos.push_back(parseCE());
+                }
+            }
+            match(Token::RPAREN);
+            return fcall;
+        }
+        else {
+            return new IdExp(nom);
+            }
+    }
+    else if(match(Token::STRING)) {
+        return new StringExp(previous->text);   
+    } else {
+        throw runtime_error("Error sintáctico");
+    }
+}
+
+
+parser.h
+
+#ifndef PARSER_H       
+#define PARSER_H
+
+#include "scanner.h"    // Incluye la definición del escáner (provee tokens al parser)
+#include "ast.h"        // Incluye las definiciones para construir el Árbol de Sintaxis Abstracta (AST)
+
+class Parser {
+private:
+    Scanner* scanner;       // Puntero al escáner, de donde se leen los tokens
+    Token *current, *previous; // Punteros al token actual y al anterior
+    bool match(Token::Type ttype);   // Verifica si el token actual coincide con un tipo esperado y avanza si es así
+    bool check(Token::Type ttype);   // Comprueba si el token actual es de cierto tipo, sin avanzar
+    bool advance();                  // Avanza al siguiente token
+    bool isAtEnd();                  // Comprueba si ya se llegó al final de la entrada
+    bool isType(const std::string& t);
+public:
+    Parser(Scanner* scanner);       
+    Program* parseProgram();
+    //FunDec* parseFunDec();
+    Body* parseBody();
+    //VarDec* parseVarDec();
+    FunDec* parseFunDec(const std::string& tipo, const std::string& nombre);
+    VarDec* parseVarDec(const std::string& tipo, const std::string& firstVarName);
+    Stm* parseStm();
+    Exp* parseCE();
+    Exp* parseBE();
+    Exp* parseE();
+    Exp* parseT();
+    Exp* parseF();
+};
+
+#endif // PARSER_H      
+
+scanner.cpp
+
+#include <iostream>
+#include <cstring>
+#include <fstream>
+#include "token.h"
+#include "scanner.h"
+
+using namespace std;
+
+// -----------------------------
+// Constructor
+// -----------------------------
+Scanner::Scanner(const char* s): input(s), first(0), current(0) { 
+    }
+
+// -----------------------------
+// Función auxiliar
+// -----------------------------
+
+bool is_white_space(char c) {
+    return c == ' ' || c == '\n' || c == '\r' || c == '\t';
+}
+
+// -----------------------------
+// nextToken: obtiene el siguiente token
+// -----------------------------
+
+
+Token* Scanner::nextToken() {
+    Token* token;
+
+    // Saltar espacios en blanco
+    while (current < input.length() && is_white_space(input[current])) 
+        current++;
+
+    // Fin de la entrada
+    if (current >= input.length()) 
+        return new Token(Token::END);
+
+    char c = input[current];
+
+    first = current;
+
+    // Números
+    if (isdigit(c)) {
+        current++;
+        while (current < input.length() && isdigit(input[current]))
+            current++;
+        token = new Token(Token::NUM, input, first, current - first);
+    }
+    // ID
+    else if (isalpha(c)) {
+        current++;
+        while (current < input.length() && isalnum(input[current]))
+            current++;
+        string lexema = input.substr(first, current - first);
+        if (lexema=="sqrt") return new Token(Token::SQRT, input, first, current - first);
+        else if (lexema=="printf") return new Token(Token::PRINTF, input, first, current - first);
+        else if (lexema=="if") return new Token(Token::IF, input, first, current - first);
+        else if (lexema=="while") return new Token(Token::WHILE, input, first, current - first);
+        else if (lexema=="for") return new Token(Token::FOR, input, first, current - first);
+        else if (lexema=="then") return new Token(Token::THEN, input, first, current - first);
+        else if (lexema=="do") return new Token(Token::DO, input, first, current - first);
+        //else if (lexema=="endif") return new Token(Token::ENDIF, input, first, current - first);
+        //else if (lexema=="endwhile") return new Token(Token::ENDWHILE, input, first, current - first);
+        else if (lexema=="else") return new Token(Token::ELSE, input, first, current - first);
+        //else if (lexema=="var") return new Token(Token::VAR, input, first, current - first);
+        else if (lexema=="true") return new Token(Token::TRUE, input, first, current - first);
+        else if (lexema=="false") return new Token(Token::FALSE, input, first, current - first);
+
+        else if (lexema=="fun") return new Token(Token::FUN, input, first, current - first);
+        else if (lexema=="endfun") return new Token(Token::ENDFUN, input, first, current - first);
+        else if (lexema=="return") return new Token(Token::RETURN, input, first, current - first);
+
+        else return new Token(Token::ID, input, first, current - first);
+    }
+    // Operadores
+
+    else if (c == '"') {
+        current++;
+        first = current;
+
+        while (current < input.length() && input[current] != '"'){
+            current++;
+        }
+            
+        if (current < input.length() && input[current] == '"') {
+            int len = current - first;  // NO incluye la comilla final
+            current++; // saltar la comilla final
+            token = new Token(Token::STRING, input, first, len);
+        } else {
+            token = new Token(Token::ERR, input, first, current - first);
+        }
+    }
+    else if (strchr("+/-*();=<>,{}[]", c)) {
+        switch (c) {
+            case '<':
+            if((input[current+1]=='=')){
+                current++;
+                token = new Token(Token::LEQ, input, first, current + 1 - first);
+            } else{
+                token = new Token(Token::LE,  c); 
+            } break;
+            case '>':
+            if((input[current+1]=='=')){
+                current++;
+                token = new Token(Token::GEQ, input, first, current + 1 - first);
+            } else{
+                token = new Token(Token::GE,  c); 
+            } break;
+            case '+': token = new Token(Token::PLUS,  c); break;
+            case '-': token = new Token(Token::MINUS, c); break;
+            case '*': 
+            if (input[current+1]=='*')
+            {
+                current++;
+                token = new Token(Token::POW, input, first, current + 1 - first);
+            }
+            else{
+                token = new Token(Token::MUL,   c);
+            }
+            break;
+            case '/': token = new Token(Token::DIV,   c); break;
+            case '(': token = new Token(Token::LPAREN,c); break;
+            case ')': token = new Token(Token::RPAREN,c); break;
+            case '{': token = new Token(Token::LBRACKET,c); break;
+            case '}': token = new Token(Token::RBRACKET,c); break;
+            case '[': token = new Token(Token::LARRAYBRACKET,c); break;
+            case ']': token = new Token(Token::RARRAYBRACKET,c); break;
+            case '=': token = new Token(Token::ASSIGN,c); break;
+            case ';': token = new Token(Token::SEMICOL,c); break;
+            case ',': token = new Token(Token::COMA,c); break;
+
+        }
+        current++;
+    }
+
+    // Carácter inválido
+    else {
+        token = new Token(Token::ERR, c);
+        current++;
+    }
+
+    return token;
+}
+
+
+
+
+// -----------------------------
+// Destructor
+// -----------------------------
+Scanner::~Scanner() { }
+
+// -----------------------------
+// Función de prueba
+// -----------------------------
+
+int ejecutar_scanner(Scanner* scanner, const string& InputFile) {
+    Token* tok;
+
+    // Crear nombre para archivo de salida
+    string OutputFileName = InputFile;
+    size_t pos = OutputFileName.find_last_of(".");
+    if (pos != string::npos) {
+        OutputFileName = OutputFileName.substr(0, pos);
+    }
+    OutputFileName += "_tokens.txt";
+
+    ofstream outFile(OutputFileName);
+    if (!outFile.is_open()) {
+        cerr << "Error: no se pudo abrir el archivo " << OutputFileName << endl;
+        return 0;
+    }
+
+    outFile << "Scanner\n" << endl;
+
+    while (true) {
+        tok = scanner->nextToken();
+
+        if (tok->type == Token::END) {
+            outFile << *tok << endl;
+            delete tok;
+            outFile << "\nScanner exitoso" << endl << endl;
+            outFile.close();
+            return 0;
+        }
+
+        if (tok->type == Token::ERR) {
+            outFile << *tok << endl;
+            delete tok;
+            outFile << "Caracter invalido" << endl << endl;
+            outFile << "Scanner no exitoso" << endl << endl;
+            outFile.close();
+            return 0;
+        }
+
+        outFile << *tok << endl;
+        delete tok;
+    }
+}
+
+
+
+scanner.h
+
+
+#ifndef SCANNER_H
+#define SCANNER_H
+
+#include <string>
+#include "token.h"
+using namespace std;
+
+class Scanner {
+private:
+    string input;
+    int first;
+    int current;
+
+public:
+    // Constructor
+    Scanner(const char* in_s);
+
+    // Retorna el siguiente token
+    Token* nextToken();
+
+    // Destructor
+    ~Scanner();
+
+};
+
+// Ejecutar scanner
+int ejecutar_scanner(Scanner* scanner,const string& InputFile);
+
+#endif // SCANNER_H
+
+
+semantic_types.h
+
+#ifndef SEMANTIC_TYPES_H
+#define SEMANTIC_TYPES_H
+
+#include <iostream>
+#include <string>
+using namespace std;
+
+// ===========================================================
+//  Representación de tipos básicos del lenguaje
+// ===========================================================
+
+class Type {
+public:
+    enum TType { NOTYPE, VOID, INT, BOOL, CHAR, STRUCT, ARRAY /* luego LONG, PTR */ };
+    static const char* type_names[4];
+
+    TType ttype;
+    Type* base = nullptr;   //Tipo base, solo para Arrays //Ej. int a[5] ttype = Array y base = int
+    int length = 0;         //para Arrays
+
+    Type() : ttype(NOTYPE) {}
+    Type(TType tt) : ttype(tt) {}
+
+    // Comparación de tipos
+    bool match(Type* t) const {
+        return this->ttype == t->ttype;
+    }
+
+    // Asignación de tipo básico desde string
+    bool set_basic_type(const string& s) {
+        TType tt = string_to_type(s);
+        if (tt == NOTYPE) return false;
+        ttype = tt;
+        return true;
+    }
+
+    // Conversión string 
+    static TType string_to_type(const string& s) {
+        if (s == "int") return INT;
+        if (s == "bool") return BOOL;
+        if (s == "void") return VOID;
+        if (s == "char") return CHAR;
+        return NOTYPE;
+    }
+
+
+};
+
+inline const char* Type::type_names[4] = { "notype", "void", "int", "bool" };
+
+#endif // SEMANTIC_TYPES_H
+
+
+
+
+
+token.cpp
+
+#include <iostream>
+#include "token.h"
+
+using namespace std;
+
+// -----------------------------
+// Constructores
+// -----------------------------
+
+Token::Token(Type type) 
+    : type(type), text("") { }
+
+Token::Token(Type type, char c) 
+    : type(type), text(string(1, c)) { }
+
+Token::Token(Type type, const string& source, int first, int last) 
+    : type(type), text(source.substr(first, last)) { }
+
+// -----------------------------
+// Sobrecarga de operador <<
+// -----------------------------
+
+// Para Token por referencia
+ostream& operator<<(ostream& outs, const Token& tok) {
+    switch (tok.type) {
+        case Token::PLUS:   outs << "TOKEN(PLUS, \""   << tok.text << "\")"; break;
+        case Token::MINUS:  outs << "TOKEN(MINUS, \""  << tok.text << "\")"; break;
+        case Token::MUL:    outs << "TOKEN(MUL, \""    << tok.text << "\")"; break;
+        case Token::DIV:    outs << "TOKEN(DIV, \""    << tok.text << "\")"; break;
+        case Token::LPAREN:    outs << "TOKEN(LPAREN, \""    << tok.text << "\")"; break;
+        case Token::RPAREN:    outs << "TOKEN(RPAREN, \""    << tok.text << "\")"; break;
+        case Token::LBRACKET:    outs << "TOKEN(LBRACKET, \""    << tok.text << "\")"; break;
+        case Token::RBRACKET:    outs << "TOKEN(RBRACKET, \""    << tok.text << "\")"; break;
+        case Token::LARRAYBRACKET:    outs << "TOKEN(LARRAYBRACKET, \""    << tok.text << "\")"; break;
+        case Token::RARRAYBRACKET:    outs << "TOKEN(RARRAYBRACKET, \""    << tok.text << "\")"; break;
+        case Token::POW:    outs << "TOKEN(POW, \""    << tok.text << "\")"; break;
+        case Token::SQRT:    outs << "TOKEN(SQRT, \""    << tok.text << "\")"; break;
+        case Token::ID:    outs << "TOKEN(ID, \""    << tok.text << "\")"; break;
+        case Token::NUM:    outs << "TOKEN(NUM, \""    << tok.text << "\")"; break;
+        case Token::ERR:    outs << "TOKEN(ERR, \""    << tok.text << "\")"; break;
+        case Token::LE:    outs << "TOKEN(LE, \""    << tok.text << "\")"; break;
+        case Token::LEQ:    outs << "TOKEN(LEQ, \""    << tok.text << "\")"; break;
+        case Token::GE:    outs << "TOKEN(GE, \""    << tok.text << "\")"; break;
+        case Token::GEQ:    outs << "TOKEN(GEQ, \""    << tok.text << "\")"; break;
+        //case Token::PRINT:    outs << "TOKEN(PRINT, \""    << tok.text << "\")"; break;
+        case Token::PRINTF:    outs << "TOKEN(PRINTF, \""    << tok.text << "\")"; break;
+        case Token::SEMICOL:    outs << "TOKEN(SEMICOL, \""    << tok.text << "\")"; break;
+        case Token::ASSIGN:    outs << "TOKEN(ASSIGN, \""    << tok.text << "\")"; break;
+        case Token::IF:    outs << "TOKEN(IF, \""    << tok.text << "\")"; break;
+        case Token::WHILE:    outs << "TOKEN(WHILE, \""    << tok.text << "\")"; break;
+        case Token::FOR:    outs << "TOKEN(WHILE, \""    << tok.text << "\")"; break;
+        case Token::THEN:    outs << "TOKEN(THEN, \""    << tok.text << "\")"; break;
+        case Token::DO:    outs << "TOKEN(DO, \""    << tok.text << "\")"; break;
+        case Token::ENDIF:    outs << "TOKEN(ENDIF, \""    << tok.text << "\")"; break;
+        case Token::ENDWHILE:    outs << "TOKEN(ENDWHILE, \""    << tok.text << "\")"; break;
+        case Token::ELSE:    outs << "TOKEN(ELSE, \""    << tok.text << "\")"; break;
+        //case Token::VAR:    outs << "TOKEN(VAR, \""    << tok.text << "\")"; break;
+        case Token::COMA:    outs << "TOKEN(COMA, \""    << tok.text << "\")"; break;
+
+        case Token::FUN:    outs << "TOKEN(FUN, \""    << tok.text << "\")"; break;
+        case Token::ENDFUN:    outs << "TOKEN(ENDFUN, \""    << tok.text << "\")"; break;
+        case Token::RETURN:    outs << "TOKEN(RETURN, \""    << tok.text << "\")"; break;
+
+        case Token::TRUE:    outs << "TOKEN(TRUE)"; break;
+        case Token::FALSE:    outs  << "TOKEN(FALSE)"; break;
+        case Token::STRING:    outs << "TOKEN(STRING, \"" << tok.text << "\")"; break;
+
+        case Token::END:    outs << "TOKEN(END)"; break;
+    }
+    return outs;
+}
+
+// Para Token puntero
+ostream& operator<<(ostream& outs, const Token* tok) {
+    if (!tok) return outs << "TOKEN(NULL)";
+    return outs << *tok;  // delega al otro
+}
+
+
+token.h
+
+#ifndef TOKEN_H
+#define TOKEN_H
+
+#include <string>
+#include <ostream>
+
+using namespace std;
+
+class Token {
+public:
+    // Tipos de token
+    enum Type {
+        PLUS,    // +
+        MINUS,   // -
+        MUL,     // *
+        DIV,     // /
+        POW,     // **
+        LBRACKET,  // {
+        RBRACKET,  // }
+        LARRAYBRACKET, // [
+        RARRAYBRACKET, // ] 
+        LPAREN,  // (
+        RPAREN,  // )
+        SQRT,    // sqrt
+        NUM,     // Número
+        ERR,     // Error
+        ID,      // ID
+        LE,      // <
+        LEQ,     // <=
+        GE,      // >
+        GEQ,     // >=
+        FUN,
+        ENDFUN,
+        RETURN,
+        SEMICOL, // ;    
+        ASSIGN,
+        //PRINT,
+        PRINTF,
+        IF,
+        WHILE,
+        FOR,
+        DO,
+        THEN,
+        ENDIF,
+        ENDWHILE,
+        ELSE,
+        END,      // Fin de entrada
+        //VAR,
+        COMA,
+        TRUE,
+        FALSE,
+        STRING   // string literal
+    };
+
+    // Atributos
+    Type type;
+    string text;
+
+    // Constructores
+    Token(Type type);
+    Token(Type type, char c);
+    Token(Type type, const string& source, int first, int last);
+
+    // Sobrecarga de operadores de salida
+    friend ostream& operator<<(ostream& outs, const Token& tok);
+    friend ostream& operator<<(ostream& outs, const Token* tok);
+};
+
+#endif // TOKEN_H
+
+
+typechecker.cpp
+
+#include "typechecker.h"
+#include <iostream>
+#include <stdexcept>
+using namespace std;
+
+
+Type* NumberExp::accept(TypeVisitor* v) { return v->visit(this); }
+Type* IdExp::accept(TypeVisitor* v) { return v->visit(this); }
+Type* BinaryExp::accept(TypeVisitor* v) { return v->visit(this); }
+Type* FcallExp::accept(TypeVisitor* v) { return v->visit(this); }
+Type* BoolExp::accept(TypeVisitor* v) { return v->visit(this); }
+
+void AssignStm::accept(TypeVisitor* v) { v->visit(this); }
+void PrintStm::accept(TypeVisitor* v) { v->visit(this); }
+void ReturnStm::accept(TypeVisitor* v) { v->visit(this); }
+
+void IfStm::accept(TypeVisitor* v){ v->visit(this); }
+void WhileStm::accept(TypeVisitor* v){ v->visit(this); }
+void ForStm::accept(TypeVisitor* v){ v->visit(this); }
+
+Type* ArrayAccessExp::accept(TypeVisitor* v){ return v->visit(this); }
+void ArrayAssignStm::accept(TypeVisitor* v){ v->visit(this); }
+
+void VarDec::accept(TypeVisitor* v) { v->visit(this); }
+void FunDec::accept(TypeVisitor* v) { v->visit(this); }
+void Body::accept(TypeVisitor* v) { v->visit(this); }
+void Program::accept(TypeVisitor* v) { v->visit(this); }
+
+Type* StringExp::accept(TypeVisitor* v){ return v->visit(this); }
+// ===========================================================
+//   Constructor del TypeChecker
+// ===========================================================
+
+TypeChecker::TypeChecker() {
+    intType = new Type(Type::INT);
+    boolType = new Type(Type::BOOL);
+    voidType = new Type(Type::VOID);
+    charType = new Type(Type::CHAR);
+}
+
+// ===========================================================
+//   Registrar funciones globales
+// ===========================================================
+
+void TypeChecker::add_function(FunDec* fd) {
+    if (functions.find(fd->nombre) != functions.end()) {
+        cerr << "Error: función '" << fd->nombre << "' ya fue declarada." << endl;
+        exit(0);
+    }
+
+    Type* returnType = new Type();
+    if (!returnType->set_basic_type(fd->tipo)) {
+        cerr << "Error: tipo de retorno no válido en función '" << fd->nombre << "'." << endl;
+        exit(0);
+    }
+
+    functions[fd->nombre] = returnType;
+}
+
+// ===========================================================
+//   Método principal de verificación
+// ===========================================================
+
+void TypeChecker::typecheck(Program* program) {
+    if (program) program->accept(this);
+    cout << "Revisión exitosa" << endl;
+}
+
+// ===========================================================
+//   Nivel superior: Programa y Bloque
+// ===========================================================
+
+void TypeChecker::visit(Program* p) {
+    // Primero registrar funciones
+    for (auto f : p->fdlist)
+        add_function(f);
+
+    env.add_level();
+    for (auto v : p->vdlist)
+        v->accept(this);  
+    for (auto f : p->fdlist)
+        f->accept(this);  
+    env.remove_level();
+}
+
+void TypeChecker::visit(Body* b) {
+    env.add_level();
+    for (auto v : b->declarations) v->accept(this);
+    for (auto s : b->StmList) s->accept(this);
+    env.remove_level();
+}
+
+// ===========================================================
+//   Declaraciones
+// ===========================================================
+
+void TypeChecker::visit(VarDec* v) {
+    Type* t = new Type();
+    if (!t->set_basic_type(v->type)) {
+        cerr << "Error: tipo de variable no válido." << endl;
+        exit(0);
+    }
+
+    for (const auto& var : v->vars) {
+        if (env.check(var.name)) {
+            cerr << "Error: variable '" << var.name << "' ya declarada." << endl;
+            exit(0);
+        }
+
+        if(!var.isArray){
+            env.add_var(var.name, t);
+        } else {
+            Type* arrT = new Type(Type::ARRAY);
+            arrT->base = t;
+            arrT->length = var.length;
+            env.add_var(var.name, arrT);
+        }
+    }
+}
+
+void TypeChecker::visit(FunDec* f) {
+    env.add_level();
+    for (size_t i = 0; i < f->Pnombres.size(); ++i) {
+        Type* pt = new Type();
+        if (!pt->set_basic_type(f->Ptipos[i])) {
+            cerr << "Error: tipo de parámetro inválido en función '" << f->nombre << "'." << endl;
+            exit(0);
+        }
+        env.add_var(f->Pnombres[i], pt);
+    }
+    f->cuerpo->accept(this); 
+    env.remove_level();
+}
+
+// ===========================================================
+//   Sentencias
+// ===========================================================
+
+void TypeChecker::visit(PrintStm* stm) {
+    Type* t = stm->e->accept(this);
+
+    bool ok_basic = t->match(intType) || t->match(boolType);
+
+    bool ok_string =
+        (t->ttype == Type::ARRAY &&
+         t->base && t->base->ttype == Type::CHAR);
+
+
+    if (!(ok_basic || ok_string )) {
+        cerr << "Error: tipo inválido en print.\n";
+        exit(0);
+    }
+}
+
+void TypeChecker::visit(AssignStm* stm) {
+    if (!env.check(stm->id)) {
+        cerr << "Error: variable '" << stm->id << "' no declarada." << endl;
+        exit(0);
+    }
+
+    Type* varType = env.lookup(stm->id);
+    Type* expType = stm->e->accept(this);
+
+    if (!varType->match(expType)) {
+        cerr << "Error: tipos incompatibles en asignación a '" << stm->id << "'." << endl;
+        exit(0);
+    }
+}
+
+void TypeChecker::visit(ReturnStm* stm) {
+    if (stm->e) {
+        Type* t = stm->e->accept(this);
+        if (!(t->match(intType) || t->match(boolType) || t->match(voidType))) {
+            cerr << "Error: tipo inválido en return." << endl;
+            exit(0);
+        }
+    }
+}
+
+void TypeChecker::visit(ForStm* stm) {
+    env.add_level(); // scope del for
+
+    if (stm->initDec) stm->initDec->accept(this);
+    if (stm->initAssign) stm->initAssign->accept(this);
+
+    Type* ct = stm->condition->accept(this);
+    if (!(ct->match(boolType) || ct->match(intType))) {
+        cerr << "condición de for debe ser bool/int" << endl;
+        exit(0);
+    }
+
+    stm->cuerpo->accept(this);
+    stm->step->accept(this);
+
+    env.remove_level();
+}
+
+void TypeChecker::visit(IfStm* stm){
+    Type* ct = stm->condition->accept(this);
+    if(!(ct->match(boolType) || ct->match(intType))){
+        cerr << "condición de if debe ser bool/int\n";
+        exit(0);
+    }
+    stm->then->accept(this);
+    if(stm->els) stm->els->accept(this);
+}
+
+void TypeChecker::visit(WhileStm* stm){
+    Type* ct = stm->condition->accept(this);
+    if(!(ct->match(boolType) || ct->match(intType))){
+        cerr << "condición de while debe ser bool/int\n";
+        exit(0);
+    }
+    stm->b->accept(this);
+}
+
+void TypeChecker::visit(ExprStm* stm){
+    stm->e->accept(this);
+}
+
+
+
+// ===========================================================
+//   Expresiones
+// ===========================================================
+
+Type* TypeChecker::visit(BinaryExp* e) {
+    Type* left = e->left->accept(this);
+    Type* right = e->right->accept(this);
+
+    switch (e->op) {
+        case PLUS_OP: 
+        case MINUS_OP: 
+        case MUL_OP: 
+        case DIV_OP: 
+        case POW_OP:
+            if (!(left->match(intType) && right->match(intType))) {
+                cerr << "Error: operación aritmética requiere operandos int." << endl;
+                exit(0);
+            }
+            return intType;
+        case LE_OP:
+        case LEQ_OP:
+        case GE_OP:
+        case GEQ_OP:
+            if (!(left->match(intType) && right->match(intType))) {
+                cerr << "Error: operación aritmética requiere operandos int." << endl;
+                exit(0);
+            }
+        return boolType;
+        default:
+            cerr << "Error: operador binario no soportado." << endl;
+            exit(0);
+    }
+}
+
+Type* TypeChecker::visit(NumberExp* e) { return intType; }
+
+Type* TypeChecker::visit(BoolExp* e) { return boolType; }
+
+Type* TypeChecker::visit(IdExp* e) {
+    if (!env.check(e->value)) {
+        cerr << "Error: variable '" << e->value << "' no declarada." << endl;
+        exit(0);
+    }
+    return env.lookup(e->value);
+}
+
+Type* TypeChecker::visit(FcallExp* e) {
+    auto it = functions.find(e->nombre);
+    if (it == functions.end()) {
+        cerr << "Error: llamada a función no declarada '" << e->nombre << "'." << endl;
+        exit(0);
+    }
+    return it->second;
+}
+
+
+// ===========================================================
+//   Arrays
+// ===========================================================
+
+Type* TypeChecker::visit(ArrayAccessExp* e){
+    if(!env.check(e->id)){
+        cerr << "array no declarado: " << e->id << endl; exit(0);
+    }
+    Type* t = env.lookup(e->id);
+    if(t->ttype != Type::ARRAY){
+        cerr << e->id << " no es array\n"; exit(0);
+    }
+
+    Type* idxT = e->index->accept(this);
+    if(!idxT->match(intType)){
+        cerr << "indice de array debe ser int\n"; exit(0);
+    }
+    return t->base;
+}
+
+void TypeChecker::visit(ArrayAssignStm* s){
+    Type* leftT = (new ArrayAccessExp(s->id, s->index))->accept(this);
+    Type* rightT = s->e->accept(this);
+
+    if(!leftT->match(rightT)){
+        cerr << "tipos incompatibles en asignacion a array\n"; exit(0);
+    }
+}
+
+// ===========================================================
+//   Strings
+// ===========================================================
+
+Type* TypeChecker::visit(StringExp* e) {
+    // string literal: array de char
+    Type* arr = new Type(Type::ARRAY);
+    arr->base = charType;
+    arr->length = static_cast<int>(e->value.size()) + 1; //longitud len+1 (por el '\0')
+    return arr;
+}
+
+
+
+TypeChecker.h
+
+#ifndef TYPECHECKER_H
+#define TYPECHECKER_H
+
+#include <unordered_map>
+#include <string>
+#include "ast.h"
+#include "environment.h"
+#include "semantic_types.h"
+
+using namespace std;
+
+class BinaryExp;
+class NumberExp;
+class Program;
+class PrintStm;
+class AssignStm;
+class FunDec;
+class ReturnStm;
+class Body;
+class VarDec;
+class FcallExp;
+class BoolExp;
+
+class TypeVisitor {
+public:
+
+    // --- Nodos de nivel superior ---
+    virtual void visit(Program* p) = 0;
+    virtual void visit(Body* b) = 0;
+    virtual void visit(VarDec* v) = 0;
+    virtual void visit(FunDec* f) = 0;
+
+    // --- Sentencias ---
+    virtual void visit(PrintStm* stm) = 0;
+    virtual void visit(AssignStm* stm) = 0;
+    virtual void visit(ReturnStm* stm) = 0;
+    virtual void visit(ForStm* stm) = 0;
+    virtual void visit(IfStm* stm) = 0;
+    virtual void visit(WhileStm* stm) = 0;
+    virtual void visit(ExprStm* stm) = 0;
+
+    // --- Expresiones ---
+    virtual Type* visit(BinaryExp* e) = 0;
+    virtual Type* visit(NumberExp* e) = 0;
+    virtual Type* visit(IdExp* e) = 0;
+    virtual Type* visit(BoolExp* e) = 0;
+    virtual Type* visit(FcallExp* e) = 0;
+
+    // --- ARRAY ---
+    virtual Type* visit(ArrayAccessExp* e) = 0;
+    virtual void visit(ArrayAssignStm* s) = 0;
+
+    // --- STRING ---
+    virtual Type* visit(StringExp* e) = 0;
+};
+
+
+
+// ──────────────────────────────────────────────
+//   CLASE TYPECHECKER
+// ──────────────────────────────────────────────
+
+class TypeChecker : public TypeVisitor {
+private:
+    Environment<Type*> env;                 // Entorno de variables y sus tipos
+    unordered_map<string, Type*> functions; // Entorno de funciones
+
+    // Tipos básicos
+    Type* intType;
+    Type* boolType;
+    Type* voidType;
+    Type* charType;
+
+    // Registro de funciones
+    void add_function(FunDec* fd);
+
+public:
+    TypeChecker();
+
+    // Método principal de verificación
+    void typecheck(Program* program);
+
+    // --- Visitas de alto nivel ---
+    void visit(Program* p) override;
+    void visit(Body* b) override;
+    void visit(VarDec* v) override;
+    void visit(FunDec* f) override;
+
+    // --- Sentencias ---
+    void visit(PrintStm* stm) override;
+    void visit(AssignStm* stm) override;
+    void visit(ReturnStm* stm) override;
+
+    void visit(ForStm* stm) override;
+    void visit(IfStm* stm) override;
+    void visit(WhileStm* stm) override;
+    void visit(ExprStm* stm) override;
+
+    // --- Expresiones ---
+    Type* visit(BinaryExp* e) override;
+    Type* visit(NumberExp* e) override;
+    Type* visit(IdExp* e) override;
+    Type* visit(FcallExp* e) override;
+    Type* visit(BoolExp* e) override;
+
+    // --- ARRAY ---
+    Type* visit(ArrayAccessExp* e) override;
+    void visit(ArrayAssignStm* s) override;
+
+
+    // --- STRING ---
+    Type* visit(StringExp* e) override;
+};
+
+#endif // TYPECHECKER_H
+
+
+visitor.cpp
+
+#include <iostream>
+#include "ast.h"
+#include "visitor.h"
+#include <unordered_map>
+#include "typechecker.h"
+using namespace std;
+
+///////////////////////////////////////////////////////////////////////////////////
+
+int BinaryExp::accept(Visitor* visitor) {
+    return visitor->visit(this);
+}
+
+int NumberExp::accept(Visitor* visitor) {
+    return visitor->visit(this);
+}
+
+int ForStm::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
+int Program::accept(Visitor* visitor) {
+    return visitor->visit(this);
+}
+
+int IdExp::accept(Visitor* visitor) {
+    return visitor->visit(this);
+}
+
+
+int PrintStm::accept(Visitor* visitor) {
+    return visitor->visit(this);
+}
+
+int AssignStm::accept(Visitor* visitor) {
+    return visitor->visit(this);
+}
+
+int IfStm::accept(Visitor* visitor) {
+    return visitor->visit(this);
+}
+
+int WhileStm::accept(Visitor* visitor) {
+    return visitor->visit(this);
+}
+
+int Body::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
+int VarDec::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
+int FcallExp::accept(Visitor* visitor) {
+    return visitor->visit(this);
+}
+
+int FunDec::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
+int ReturnStm::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
+int ExprStm::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
+int ArrayAccessExp::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
+int ArrayAssignStm::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
+int StringExp::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
+///////////////////////////////////////////////////////////////////////////////////
+
+int GenCodeVisitor::generar(Program* program) {
+    TypeChecker tc;
+    tc.typecheck(program);
+
+    tipe.tipe(program);
+    fun_reserva = tipe.fun_locales;
+
+    program->accept(this);
+        return 0;
+}
+
+int GenCodeVisitor::visit(Program* program) {
+    enviroment.add_level();
+out << ".data\nprint_fmt: .string \"%ld \\n\""<<endl;
+
+    for (auto dec : program->vdlist){
+        dec->accept(this);
+    }
+
+    for (auto& [var, _] : memoriaGlobal) {
+        if(memoriaGlobalArrayLen.count(var)){
+            out << var << ": .zero " << memoriaGlobalArrayLen[var]*8 << "\n";
+        } else {
+            out << var << ": .quad 0\n";
+        }
+    }
+
+    out << ".text\n";
+    
+    for (auto dec : program->fdlist){
+        dec->accept(this);
+    }
+
+    out << ".section .note.GNU-stack,\"\",@progbits"<<endl;
+    enviroment.remove_level();
+        return 0;
+}
+
+int GenCodeVisitor::visit(VarDec* stm) {
+    for (auto var : stm->vars) {
+        if (!entornoFuncion) {
+            //GLOBAL
+            memoriaGlobal[var.name] = true;
+            if(var.isArray) memoriaGlobalArrayLen[var.name] = var.length;
+
+        } else {
+            enviroment.add_var(var.name, offset);
+            if(!var.isArray) offset -= 8;
+            else offset -= (var.length * 8);
+        }
+    }
+        return 0;
+}
+
+int GenCodeVisitor::visit(NumberExp* exp) {
+    out << " movq $" << exp->value << ", %rax"<<endl;
+    return 0;
+}
+
+int GenCodeVisitor::visit(IdExp* exp) {
+    if (memoriaGlobal.count(exp->value))
+        out << " movq " << exp->value << "(%rip), %rax"<<endl;
+    else
+        out << " movq " << (enviroment.lookup(exp->value)) << "(%rbp), %rax"<<endl;
+    return 0;
+}
+
+int GenCodeVisitor::visit(BinaryExp* exp) {
+    exp->left->accept(this);
+    out << " pushq %rax\n";
+    exp->right->accept(this);
+    out << " movq %rax, %rcx\n popq %rax\n";
+
+    switch (exp->op) {
+        case PLUS_OP:  out << " addq %rcx, %rax\n"; break;
+        case MINUS_OP: out << " subq %rcx, %rax\n"; break;
+        case MUL_OP:   out << " imulq %rcx, %rax\n"; break;
+        case LE_OP:
+            out << " cmpq %rcx, %rax\n"
+                      << " movl $0, %eax\n"
+                      << " setl %al\n"
+                      << " movzbq %al, %rax\n";
+            break;
+        case LEQ_OP:
+            out << " cmpq %rcx, %rax\n"
+                <<   " movl $0, %eax\n"
+                <<   " setle %al\n"
+                <<   " movzbq %al, %rax\n";
+            break;
+
+        case GE_OP:
+            out << " cmpq %rcx, %rax\n"
+                <<   " movl $0, %eax\n"
+                <<   " setg %al\n"
+                <<   " movzbq %al, %rax\n";
+            break;
+        case GEQ_OP:
+            out << " cmpq %rcx, %rax\n"
+                <<   " movl $0, %eax\n"
+                <<   " setge %al\n"
+                <<   " movzbq %al, %rax\n";
+            break;
+    }
+    return 0;
+}
+
+
+int GenCodeVisitor::visit(AssignStm* stm) {
+    stm->e->accept(this);
+    if (memoriaGlobal.count(stm->id))
+        out << " movq %rax, " << stm->id << "(%rip)"<<endl;
+    else
+        out << " movq %rax, " << (enviroment.lookup(stm->id)) << "(%rbp)"<<endl;
+            return 0;
+}
+
+int GenCodeVisitor::visit(PrintStm* stm) {
+    if (auto se = dynamic_cast<StringExp*>(stm->e)) {
+        stm->e->accept(this);   // leaq str_k(%rip), %rax
+        out << " movq %rax, %rdi\n";
+        out << " movl $0, %eax\n";
+        out << " call printf@PLT\n";
+        return 0;
+    }
+
+    stm->e->accept(this);
+    out <<
+        " movq %rax, %rsi\n"
+        " leaq print_fmt(%rip), %rdi\n"
+        " movl $0, %eax\n"
+        " call printf@PLT\n";
+    return 0;
+}
+
+
+
+int GenCodeVisitor::visit(Body* b) {
+    enviroment.add_level();
+    for (auto dec : b->declarations){
+        dec->accept(this);
+    }
+    for (auto s : b->StmList){
+        s->accept(this);
+    }
+    enviroment.remove_level();
+        return 0;
+}
+
+int GenCodeVisitor::visit(IfStm* stm) {
+    int label = labelcont++;
+    stm->condition->accept(this);
+    out << " cmpq $0, %rax"<<endl;
+    out << " je else_" << label << endl;
+   stm->then->accept(this);
+    out << " jmp endif_" << label << endl;
+    out << " else_" << label << ":"<< endl;
+    if (stm->els) stm->els->accept(this);
+    out << "endif_" << label << ":"<< endl;
+    return 0;
+}
+
+int GenCodeVisitor::visit(WhileStm* stm) {
+    int label = labelcont++;
+    out << "while_" << label << ":"<<endl;
+    stm->condition->accept(this);
+    out << " cmpq $0, %rax" << endl;
+    out << " je endwhile_" << label << endl;
+    stm->b->accept(this);
+    out << " jmp while_" << label << endl;
+    out << "endwhile_" << label << ":"<< endl;
+    return 0;
+}
+
+int GenCodeVisitor::visit(ForStm* stm) {
+    int label = labelcont++;
+    enviroment.add_level();  //scope del for
+
+    // ---- initDec ----
+    if (stm->initDec){
+        stm->initDec->accept(this);
+    }
+    
+    // ---- initAssign ----
+    if (stm->initAssign){
+        stm->initAssign->accept(this);
+    }
+
+    out << "for_" << label << ":\n";
+
+    stm->condition->accept(this);
+    out << " cmpq $0, %rax\n";
+    out << " je endfor_" << label << "\n";
+    
+    stm->cuerpo->accept(this);
+    stm->step->accept(this);
+
+    out << " jmp for_" << label << "\n";
+    out << "endfor_" << label << ":\n";
+
+    enviroment.remove_level();
+
+    return 0;
+}
+
+int GenCodeVisitor::visit(ReturnStm* stm) {
+    stm->e->accept(this);
+    out << " jmp .end_"<<nombreFuncion << endl;
+    return 0;
+}
+
+int GenCodeVisitor::visit(FunDec* f) {
+    entornoFuncion = true;
+    enviroment.add_level();
+    offset = -8;
+    nombreFuncion = f->nombre;
+    vector<std::string> argRegs = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+    out << ".globl " << f->nombre << endl;
+    out << f->nombre <<  ":" << endl;
+    out << " pushq %rbp" << endl;
+    out << " movq %rsp, %rbp" << endl;
+    out << " subq $" << fun_reserva[f->nombre]*8 << ", %rsp" << endl;
+    int size = f->Pnombres.size();
+    for (int i = 0; i < size; i++) {
+        enviroment.add_var(f->Pnombres[i], offset);
+        out << " movq " << argRegs[i] << "," << offset << "(%rbp)" << endl;
+        offset -= 8;
+    }
+    for (auto i: f->cuerpo->declarations){
+        i->accept(this);
+    }
+    int reserva = -offset - 8;
+    
+    for (auto i: f->cuerpo->StmList){
+        i->accept(this);
+    }
+    out << ".end_"<< f->nombre << ":"<< endl;
+    out << "leave" << endl;
+    out << "ret" << endl;
+    entornoFuncion = false;
+    enviroment.remove_level();
+    return 0;
+}
+
+int GenCodeVisitor::visit(ExprStm* stm) {
+    stm->e->accept(this);
+    return 0;
+}
+
+int GenCodeVisitor::visit(FcallExp* exp) {
+    vector<std::string> argRegs = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+    int size = exp->argumentos.size();
+    for (int i = 0; i < size; i++) {
+        exp->argumentos[i]->accept(this);
+        out << " mov %rax, " << argRegs[i] <<endl;
+    }
+    out << "call " << exp->nombre << endl;
+    return 0;
+}
+
+int GenCodeVisitor::visit(ArrayAccessExp* exp){
+    // eval index -> %rax
+    exp->index->accept(this);
+    out << " imulq $8, %rax\n";  // index*8
+
+    if (memoriaGlobal.count(exp->id)) {
+        // GLOBAL: label apunta a a[0], crece hacia arriba
+        out << " leaq " << exp->id << "(%rip), %rcx\n";
+        out << " addq %rax, %rcx\n";   // base + index*8
+    } else {
+        // LOCAL: base guardada es a[0] en -8, crece hacia abajo
+        int base = enviroment.lookup(exp->id);
+        out << " leaq " << base << "(%rbp), %rcx\n";
+        out << " subq %rax, %rcx\n";   // base - index*8 
+    }
+
+    out << " movq (%rcx), %rax\n";
+    return 0;
+}
+
+int GenCodeVisitor::visit(ArrayAssignStm* stm){
+    // 1) calcula addr en rcx
+    stm->index->accept(this);
+    out << " imulq $8, %rax\n";
+
+    if(memoriaGlobal.count(stm->id)){
+        out << " leaq " << stm->id << "(%rip), %rcx\n";
+        out << " addq %rax, %rcx\n";
+    } else {
+        int base = enviroment.lookup(stm->id);
+        out << " leaq " << base << "(%rbp), %rcx\n";
+        out << " subq %rax, %rcx\n";
+    }
+    out << " pushq %rcx\n";
+    stm->e->accept(this); 
+    out << " popq %rcx\n";
+    
+    out << " movq %rax, (%rcx)\n";
+    return 0;
+}
+
+static string escape(const string& s) {
+    string r;
+    for (char c : s) {
+        if (c == '\\') r += "\\\\";
+        else if (c == '"') r += "\\\"";
+        else if (c == '\n') r += "\\n";
+        else r += c;
+    }
+    return r;
+}
+
+int GenCodeVisitor::visit(StringExp* exp) {
+    string lit = exp->value;
+    string label;
+    auto it = stringLabels.find(lit);
+    if (it == stringLabels.end()) {
+        label = "str_" + to_string(stringCounter++);
+        stringLabels[lit] = label;
+
+        out << ".section .rodata\n";
+        out << label << ": .string \"" << escape(lit) << "\"\n";
+        out << ".text\n";
+    } else {
+        label = it->second;
+    }
+
+    out << " leaq " << label << "(%rip), %rax\n";
+    return 0;
+}
+
+
+/////////////////////////////////////////////
+/////////////////////////////////////////////
+///
+int LocalsCounterVisitor::tipe(Program *program) {
+    for(auto i: program->fdlist) {
+        i->accept(this);
+    }
+
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(FunDec *fd) {
+    int parametros = fd->Pnombres.size();
+    locales = 0;
+    fd->cuerpo->accept(this);
+    fun_locales[fd->nombre] = parametros + locales;
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(Body *body) {
+
+    for (auto i:body->declarations) {
+        i->accept(this);
+    }
+
+    for(auto i:body->StmList) {
+        i->accept(this);
+    }
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(VarDec *vd) {
+    for (auto &v : vd->vars) {
+        if (!v.isArray) locales += 1;
+        else locales += v.length;
+    }
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(IfStm *stm) {
+    int a = locales;
+    stm-> then -> accept(this);
+    int b = locales;
+    stm-> els  -> accept(this);
+    int c = locales;
+    locales = a + max(b-a,c-b);
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(BinaryExp *exp) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(NumberExp *exp) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(IdExp *exp) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(Program *p) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(PrintStm *stm) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(AssignStm *stm) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(WhileStm *stm) {
+    return 0;
+}
+int LocalsCounterVisitor::visit(ForStm *stm) {
+    int saved = locales;
+
+    // initDec suma locales, si existe
+    if (stm->initDec){
+        locales += stm->initDec->vars.size();
+    }
+
+    // el cuerpo podría declarar más
+    stm->cuerpo->accept(this);
+
+    locales = max(locales, saved + (locales - saved));
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(ExprStm *stm) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(FcallExp *fcall) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(ReturnStm *r) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(ArrayAssignStm *r) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(ArrayAccessExp *r) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(StringExp* exp) {
+    return 0;
+}
+
+visitor.h
+
+#ifndef VISITOR_H
+#define VISITOR_H
+#include "ast.h"
+#include <list>
+#include <vector>
+#include <unordered_map>
+#include <string>
+#include "environment.h"
+using namespace std;
+
+class BinaryExp;
+class NumberExp;
+class Program;
+class PrintStm;
+class WhileStm;
+class IfStm;
+class AssignStm;
+class Body;
+class Vardec;
+class FcallExp;
+class ReturnStm;
+class FunDec;
+
+
+class Visitor {
+public:
+    // 
+    virtual int visit(BinaryExp* exp) = 0;
+    virtual int visit(NumberExp* exp) = 0;
+    virtual int visit(IdExp* exp) = 0;
+    virtual int visit(Program* p) = 0;
+    virtual int visit(PrintStm* stm) = 0;
+    virtual int visit(WhileStm* stm) = 0;
+    virtual int visit(ForStm* Stm) = 0;
+    virtual int visit(IfStm* stm) = 0;
+    virtual int visit(AssignStm* stm) = 0;
+    virtual int visit(Body* body) = 0;
+    virtual int visit(VarDec* vd) = 0;
+    virtual int visit(FcallExp* fcall) = 0;
+    virtual int visit(ReturnStm* r) = 0;
+    virtual int visit(FunDec* fd) = 0;
+    virtual int visit(ExprStm* stm) = 0;
+
+    /// ARRAY ///
+    virtual int visit(ArrayAccessExp* exp) = 0;
+    virtual int visit(ArrayAssignStm* stm) = 0;
+
+    /// STRING ///
+    virtual int visit(StringExp* exp) = 0;
+};
+
+class LocalsCounterVisitor : public Visitor {
+public:
+    unordered_map<string,int> fun_locales;
+    int locales;
+    int tipe(Program* program);
+    int visit(BinaryExp* exp) override;
+    int visit(NumberExp* exp) override;
+    int visit(IdExp* exp) override;
+    int visit(Program* p) override ;
+    int visit(PrintStm* stm) override;
+    int visit(AssignStm* stm) override;
+    int visit(WhileStm* stm) override;
+    int visit(IfStm* stm) override;
+    int visit(Body* body) override;
+    int visit(VarDec* vd) override;
+    int visit(FcallExp* fcall) override;
+    int visit(ReturnStm* r) override;
+    int visit(FunDec* fd) override;
+    int visit(ForStm* stm) override;
+    int visit(ExprStm* stm) override;
+
+    int visit(ArrayAccessExp* exp) override;
+    int visit(ArrayAssignStm* stm) override;
+
+    int visit(StringExp* exp) override;
+};
+
+class GenCodeVisitor : public Visitor {
+private:
+    std::ostream& out;
+public:
+    LocalsCounterVisitor tipe;
+    unordered_map<string,int> fun_reserva;
+    GenCodeVisitor(std::ostream& out) : out(out) {}
+    int generar(Program* program);
+    //unordered_map<string, int> memoria;
+
+    unordered_map<string,string> stringLabels;
+    int stringCounter = 0;
+
+    Environment<int> enviroment;
+    unordered_map<string, bool> memoriaGlobal;
+    unordered_map<string,int> memoriaGlobalArrayLen;
+
+    int offset = -8;
+    int labelcont = 0;
+    bool entornoFuncion = false;
+    string nombreFuncion;
+    int visit(BinaryExp* exp) override;
+    int visit(NumberExp* exp) override;
+    int visit(IdExp* exp) override;
+    int visit(Program* p) override ;
+    int visit(PrintStm* stm) override;
+    int visit(AssignStm* stm) override;
+    int visit(WhileStm* stm) override;
+    int visit(ForStm* stm) override;
+    int visit(IfStm* stm) override;
+    int visit(Body* body) override;
+    int visit(VarDec* vd) override;
+    int visit(FcallExp* fcall) override;
+    int visit(ReturnStm* r) override;
+    int visit(FunDec* fd) override;
+    int visit(ExprStm* stm) override;
+
+    int visit(ArrayAccessExp* exp) override;
+    int visit(ArrayAssignStm* stm) override;
+
+    int visit(StringExp* exp) override;
+};
+
+#endif // VISITOR_H

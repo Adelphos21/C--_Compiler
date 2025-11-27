@@ -32,8 +32,11 @@ bool Parser::check(Token::Type ttype) {
 }
 
 bool Parser::isType(const std::string& t) {
-    return t == "int" || t == "long" || t == "bool";
-}
+    if (t == "int" || t == "long" || t == "bool")
+        return true;
+
+    // typedefs registrados previamente
+    return typedefs.find(t) != typedefs.end();}
 
 
 bool Parser::advance() {
@@ -63,6 +66,15 @@ bool Parser::isAtEnd() {
 Program* Parser::parseProgram() {
     Program* p = new Program();
 
+    // FASE 1: Solo typedefs
+    while (check(Token::TYPEDEF)) {
+        match(Token::TYPEDEF);
+        TypedefDec* td = parseTypedefDec();
+        p->tdlist.push_back(td);
+        typedefs[td->alias] = td;
+    }
+
+    // FASE 2: Variables y funciones
     while (check(Token::ID)) {
         match(Token::ID);
         string tipo = previous->text;
@@ -70,9 +82,8 @@ Program* Parser::parseProgram() {
         match(Token::ID);
         string nombre = previous->text;
 
-        if(check(Token::LPAREN)){   
+        if(check(Token::LPAREN)) {   
             p->fdlist.push_back(parseFunDec(tipo, nombre));
-      //} else if(check(Token::COMA) || check(Token::SEMICOL)) {
         } else { 
             p->vdlist.push_back(parseVarDec(tipo, nombre));
         }
@@ -82,10 +93,28 @@ Program* Parser::parseProgram() {
     return p;
 }
 
+
+
+
+
+
+
 VarDec* Parser::parseVarDec(const std::string& tipo, const std::string& firstVarName){
     VarDec* vd = new VarDec();
     vd->type = tipo;
-
+    auto makeVarItemFromType = [&](const std::string &name) -> VarItem {
+        // Si el tipo es un typedef conocido, usar la info del typedef
+        if (typedefs.count(tipo) > 0) {
+            TypedefDec* td = typedefs[tipo];
+            if (td->isArray) {
+                return VarItem(name, true, td->arraySize);
+            } else {
+                return VarItem(name, false, 0);
+            }
+        }
+        // Si viene con sintaxis explícita de array (ej: int a[5];) se manejará abajo
+        return VarItem(name, false, 0);
+    };
     //Parsear Arrays
     if (match(Token::LARRAYBRACKET)) {           // '['
         match(Token::NUM);
@@ -132,6 +161,35 @@ FunDec *Parser::parseFunDec(const std::string& tipo, const std::string& nombre) 
     fd->cuerpo = parseBody();
     return fd;
 }
+
+///////////////////////////////////////////
+
+TypedefDec* Parser::parseTypedefDec() {
+    //consumimos TYPEDEF
+    match(Token::ID);
+    string baseType = previous->text;
+    
+    match(Token::ID);
+    string alias = previous->text;
+    
+    bool isArray = false;
+    int arraySize = 0;
+    
+    // typedef int vector[10];
+    if (match(Token::LARRAYBRACKET)) {
+        isArray = true;
+        match(Token::NUM);
+        arraySize = stoi(previous->text);
+        match(Token::RARRAYBRACKET);
+    }
+    
+    match(Token::SEMICOL);
+    
+    return new TypedefDec(baseType, alias, isArray, arraySize);
+}
+
+
+
 
 Body* Parser::parseBody(){
     Body* b = new Body();

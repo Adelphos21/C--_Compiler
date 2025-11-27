@@ -80,6 +80,14 @@ int StringExp::accept(Visitor* visitor){
     return visitor->visit(this);
 }
 
+int TypedefDec::accept(Visitor* visitor) {
+    return visitor->visit(this);
+}
+
+void TypedefDec::accept(TypeVisitor* visitor) {
+    visitor->visit(this);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////
 
 int GenCodeVisitor::generar(Program* program) {
@@ -413,6 +421,11 @@ int GenCodeVisitor::visit(StringExp* exp) {
 }
 
 
+int GenCodeVisitor::visit(TypedefDec* td) {
+    return 0;
+}
+
+
 /////////////////////////////////////////////
 /////////////////////////////////////////////
 ///
@@ -425,10 +438,20 @@ int LocalsCounterVisitor::tipe(Program *program) {
 }
 
 int LocalsCounterVisitor::visit(FunDec *fd) {
-    int parametros = fd->Pnombres.size();
+    // Empezamos el conteo de locales en 0
     locales = 0;
-    fd->cuerpo->accept(this);
+
+    // Contar las declaraciones locales dentro del cuerpo
+    if (fd->cuerpo) {
+        fd->cuerpo->accept(this);
+    }
+
+    // Parámetros se cuentan como slots también (uno por parámetro)
+    int parametros = static_cast<int>(fd->Pnombres.size());
+
+    // Guardar la reserva total (parametros + locales locales)
     fun_locales[fd->nombre] = parametros + locales;
+
     return 0;
 }
 
@@ -446,8 +469,10 @@ int LocalsCounterVisitor::visit(Body *body) {
 
 int LocalsCounterVisitor::visit(VarDec *vd) {
     for (auto &v : vd->vars) {
-        if (!v.isArray) locales += 1;
-        else locales += v.length;
+        if (!v.isArray)
+            locales += 1;          // 1 slot = 8 bytes
+        else
+            locales += v.length;   // N slots = N×8 bytes
     }
     return 0;
 }
@@ -494,7 +519,7 @@ int LocalsCounterVisitor::visit(ForStm *stm) {
 
     // initDec suma locales, si existe
     if (stm->initDec){
-        locales += stm->initDec->vars.size();
+        stm->initDec->accept(this);
     }
 
     // el cuerpo podría declarar más
@@ -525,5 +550,11 @@ int LocalsCounterVisitor::visit(ArrayAccessExp *r) {
 }
 
 int LocalsCounterVisitor::visit(StringExp* exp) {
+    return 0;
+}
+
+
+
+int LocalsCounterVisitor::visit(TypedefDec* td) {
     return 0;
 }

@@ -47,6 +47,11 @@ public:
 
     /// STRING ///
     virtual int visit(StringExp* exp) = 0;
+
+    ///typeeeeeeeeeee
+
+    virtual int visit(TypedefDec* td) = 0;
+
 };
 
 class LocalsCounterVisitor : public Visitor {
@@ -74,6 +79,9 @@ public:
     int visit(ArrayAssignStm* stm) override;
 
     int visit(StringExp* exp) override;
+    int visit(TypedefDec* exp) override;
+
+    
 };
 
 class GenCodeVisitor : public Visitor {
@@ -117,6 +125,9 @@ public:
     int visit(ArrayAssignStm* stm) override;
 
     int visit(StringExp* exp) override;
+
+    int visit(TypedefDec* td) override;
+
 };
 
 #endif // VISITOR_H

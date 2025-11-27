@@ -1,0 +1,17 @@
+Scanner
+
+TOKEN(ID, "int")
+TOKEN(ID, "main")
+TOKEN(LPAREN, "(")
+TOKEN(RPAREN, ")")
+TOKEN(LBRACKET, "{")
+TOKEN(PRINTF, "printf")
+TOKEN(LPAREN, "(")
+TOKEN(ERR, "hola);
+    return 0;
+}
+")
+Caracter invalido
+
+Scanner no exitoso
+

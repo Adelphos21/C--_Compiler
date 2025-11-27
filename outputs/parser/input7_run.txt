@@ -1,0 +1,7 @@
+=== STDOUT ===
+Parser exitoso
+Parseo exitoso
+Generando codigo ensamblador en inputs/input7.s
+
+=== STDERR ===
+Error: operación aritmética requiere operandos int.

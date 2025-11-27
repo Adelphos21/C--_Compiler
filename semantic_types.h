@@ -17,9 +17,20 @@ public:
     TType ttype;
     Type* base = nullptr;   //Tipo base, solo para Arrays //Ej. int a[5] ttype = Array y base = int
     int length = 0;         //para Arrays
-
+    string alias;
     Type() : ttype(NOTYPE) {}
     Type(TType tt) : ttype(tt) {}
+
+    Type* resolve() {
+        // Si tiene alias, retornar copia sin alias
+        if (!alias.empty()) {
+            Type* t = new Type(ttype);
+            t->base = base;
+            t->length = length;
+            return t;
+        }
+        return this;
+    }
 
     // Comparación de tipos
     bool match(Type* t) const {

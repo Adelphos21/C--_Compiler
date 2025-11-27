@@ -48,8 +48,9 @@ void TypeChecker::add_function(FunDec* fd) {
         exit(0);
     }
 
-    Type* returnType = new Type();
-    if (!returnType->set_basic_type(fd->tipo)) {
+    Type* returnType = resolveType(fd->tipo);
+    
+    if (!returnType) {
         cerr << "Error: tipo de retorno no válido en función '" << fd->nombre << "'." << endl;
         exit(0);
     }
@@ -71,6 +72,12 @@ void TypeChecker::typecheck(Program* program) {
 // ===========================================================
 
 void TypeChecker::visit(Program* p) {
+
+    // Primero procesar typedefs
+    for (auto td : p->tdlist) {
+        td->accept(this);
+    }
+
     // Primero registrar funciones
     for (auto f : p->fdlist)
         add_function(f);
@@ -81,6 +88,38 @@ void TypeChecker::visit(Program* p) {
     for (auto f : p->fdlist)
         f->accept(this);  
     env.remove_level();
+}
+
+// Implementar visit para TypedefDec:
+void TypeChecker::visit(TypedefDec* td) {
+    // Verificar que el tipo base existe
+    Type* baseType = new Type();
+    if (!baseType->set_basic_type(td->baseType)) {
+        cerr << "Error: tipo base inválido en typedef '" 
+             << td->alias << "'" << endl;
+        exit(0);
+    }
+    
+    // Crear el tipo alias
+    Type* aliasType;
+    if (td->isArray) {
+        aliasType = new Type(Type::ARRAY);
+        aliasType->base = baseType;
+        aliasType->length = td->arraySize;
+    } else {
+        aliasType = baseType;
+    }
+    
+    aliasType->alias = td->alias;
+    
+    // Registrar
+    if (typedefs.count(td->alias) > 0) {
+        cerr << "Error: typedef '" << td->alias 
+             << "' ya está definido" << endl;
+        exit(0);
+    }
+    
+    typedefs[td->alias] = aliasType;
 }
 
 void TypeChecker::visit(Body* b) {
@@ -95,9 +134,10 @@ void TypeChecker::visit(Body* b) {
 // ===========================================================
 
 void TypeChecker::visit(VarDec* v) {
-    Type* t = new Type();
-    if (!t->set_basic_type(v->type)) {
-        cerr << "Error: tipo de variable no válido." << endl;
+    Type* t = resolveType(v->type);
+    
+    if (!t) {
+        cerr << "Error: tipo de variable no válido: '" << v->type << "'" << endl;
         exit(0);
     }
 
@@ -107,22 +147,24 @@ void TypeChecker::visit(VarDec* v) {
             exit(0);
         }
 
-        if(!var.isArray){
+        if(!var.isArray) {
             env.add_var(var.name, t);
         } else {
             Type* arrT = new Type(Type::ARRAY);
-            arrT->base = t;
+            arrT->base = (t->ttype == Type::ARRAY) ? t->base : t;
             arrT->length = var.length;
             env.add_var(var.name, arrT);
         }
     }
 }
 
+
 void TypeChecker::visit(FunDec* f) {
     env.add_level();
     for (size_t i = 0; i < f->Pnombres.size(); ++i) {
-        Type* pt = new Type();
-        if (!pt->set_basic_type(f->Ptipos[i])) {
+        Type* pt = resolveType(f->Ptipos[i]);
+        
+        if (!pt) {
             cerr << "Error: tipo de parámetro inválido en función '" << f->nombre << "'." << endl;
             exit(0);
         }
@@ -273,6 +315,22 @@ Type* TypeChecker::visit(FcallExp* e) {
         exit(0);
     }
     return it->second;
+}
+
+////////TYPEEEEEEEEEEEEEEEEEE
+
+Type* TypeChecker::resolveType(const string& typeName) {
+    // Primero buscar en typedefs
+    if (typedefs.count(typeName) > 0) {
+        return typedefs[typeName];
+    }
+    
+    // Si no, crear tipo básico
+    Type* t = new Type();
+    if (!t->set_basic_type(typeName)) {
+        return nullptr;  // tipo inválido
+    }
+    return t;
 }
 
 

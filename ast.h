@@ -148,6 +148,23 @@ public:
     ~VarDec();
 };
 
+///////////////////////////////////////////////
+
+class TypedefDec {
+public:
+    string baseType;     // tipo base (int, bool, etc.)
+    string alias;        // nombre del alias
+    bool isArray;        // si es typedef de array
+    int arraySize;       // tamaño si isArray=true
+
+    TypedefDec(string base, string al, bool arr=false, int sz=0)
+        : baseType(base), alias(al), isArray(arr), arraySize(sz) {}
+    
+    int accept(Visitor* visitor);
+    void accept(TypeVisitor* visitor);
+    ~TypedefDec() {}
+};
+
 
 class Body{
 public:
@@ -257,6 +274,7 @@ public:
 
 class Program{
 public:
+    list<TypedefDec*> tdlist; // añadido por Typedef
     list<VarDec*> vdlist;
     list<FunDec*> fdlist;
     Program(){};

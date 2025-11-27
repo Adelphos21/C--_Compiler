@@ -67,6 +67,8 @@ Token* Scanner::nextToken() {
         else if (lexema=="true") return new Token(Token::TRUE, input, first, current - first);
         else if (lexema=="false") return new Token(Token::FALSE, input, first, current - first);
 
+        else if (lexema=="typedef") return new Token(Token::TYPEDEF, input, first, current - first);
+
         else if (lexema=="fun") return new Token(Token::FUN, input, first, current - first);
         else if (lexema=="endfun") return new Token(Token::ENDFUN, input, first, current - first);
         else if (lexema=="return") return new Token(Token::RETURN, input, first, current - first);

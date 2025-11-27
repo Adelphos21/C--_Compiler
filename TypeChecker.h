@@ -52,6 +52,10 @@ public:
 
     // --- STRING ---
     virtual Type* visit(StringExp* e) = 0;
+
+    // --- Typedef ---
+    virtual void visit(TypedefDec* td) = 0;
+
 };
 
 
@@ -65,6 +69,10 @@ private:
     Environment<Type*> env;                 // Entorno de variables y sus tipos
     unordered_map<string, Type*> functions; // Entorno de funciones
 
+    unordered_map<string, Type*> typedefs;  // tabla de typedefs
+    
+
+
     // Tipos básicos
     Type* intType;
     Type* boolType;
@@ -73,6 +81,8 @@ private:
 
     // Registro de funciones
     void add_function(FunDec* fd);
+    Type* resolveType(const string& typeName);
+
 
 public:
     TypeChecker();
@@ -110,6 +120,11 @@ public:
 
     // --- STRING ---
     Type* visit(StringExp* e) override;
+
+    // --- TYPEDEF ---
+
+    void visit(TypedefDec* td) override;
+    
 };
 
 #endif // TYPECHECKER_H

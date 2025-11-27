@@ -49,6 +49,7 @@ public:
         COMA,
         TRUE,
         FALSE,
+        TYPEDEF, 
         STRING   // string literal
     };
 

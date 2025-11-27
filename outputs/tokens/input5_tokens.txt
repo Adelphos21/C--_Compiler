@@ -1,0 +1,7 @@
+Scanner
+
+TOKEN(ERR, "#")
+Caracter invalido
+
+Scanner no exitoso
+
