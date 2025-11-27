@@ -1,0 +1,18 @@
+int main() {
+    int n = 5;
+
+    int a = 0, b = 1, c;
+
+    if (n <= 0) return 0;
+
+    printf("Fibonacci:\n");
+    for (int i = 1; i <= n; i++) {
+        printf(a);
+        c = a + b;
+        a = b;
+        b = c;
+    }
+
+    printf("\n");
+    return 0;
+}

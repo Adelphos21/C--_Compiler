@@ -5,6 +5,9 @@
 #include "parser.h"
 #include "ast.h"
 #include "visitor.h"
+#include <filesystem>
+namespace fs = std::filesystem;
+
 
 using namespace std;
 
@@ -72,28 +75,33 @@ int main(int argc, const char* argv[]) {
     // 3) GENERADOR DE CÓDIGO X86: GenCodeVisitor
     // ======================================================
     {
-        // Sacar el nombre base del archivo de entrada
-        string inputFile(filename);
-        size_t dotPos = inputFile.find_last_of('.');
-        string baseName = (dotPos == string::npos)
-                            ? inputFile
-                            : inputFile.substr(0, dotPos);
+        // Ruta del input (ej: inputs/input1.txt)
+        fs::path inPath(filename);
 
-        // El .s se crea al lado del input, e.g. inputs/input1.s
-        string outputFilename = baseName + ".s";
-        ofstream outfile(outputFilename);
+        // stem = "input1"
+        std::string stem = inPath.stem().string();
+
+        // carpeta outputs/codigo
+        fs::path outDir = fs::path("outputs") / "codigo";
+        fs::create_directories(outDir);  // crea outputs/ y outputs/codigo si no existen
+
+        // archivo final: outputs/codigo/input1.s
+        fs::path outPath = outDir / (stem + ".s");
+
+        ofstream outfile(outPath);
         if (!outfile.is_open()) {
-            cerr << "Error al crear el archivo de salida: " << outputFilename << endl;
+            cerr << "Error al crear el archivo de salida: " << outPath << endl;
             return 1;
         }
 
-        cout << "Generando codigo ensamblador en " << outputFilename << endl;
+        cout << "Generando codigo ensamblador en " << outPath << endl;
 
         GenCodeVisitor codigo(outfile);
         codigo.generar(program);
 
         outfile.close();
     }
+
 
     return 0;
 }

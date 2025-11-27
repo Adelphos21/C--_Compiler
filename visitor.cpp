@@ -454,10 +454,16 @@ int LocalsCounterVisitor::visit(VarDec *vd) {
 
 int LocalsCounterVisitor::visit(IfStm *stm) {
     int a = locales;
+
     stm-> then -> accept(this);
     int b = locales;
-    stm-> els  -> accept(this);
-    int c = locales;
+
+    int c = b;
+    if (stm->els) {
+        stm->els->accept(this);
+        c = locales;
+    }
+
     locales = a + max(b-a,c-b);
     return 0;
 }
@@ -487,8 +493,12 @@ int LocalsCounterVisitor::visit(AssignStm *stm) {
 }
 
 int LocalsCounterVisitor::visit(WhileStm *stm) {
+    int saved = locales;
+    stm->b->accept(this);
+    locales = max(locales, saved);
     return 0;
 }
+
 int LocalsCounterVisitor::visit(ForStm *stm) {
     int saved = locales;
 

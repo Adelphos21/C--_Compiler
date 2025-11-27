@@ -9,7 +9,7 @@ programa = [
 ]
 
 # Compilar
-compile_cmd = ["g++"] + programa
+compile_cmd = ["g++", "-std=c++17"] + programa
 print("Compilando:", " ".join(compile_cmd))
 result = subprocess.run(compile_cmd, capture_output=True, text=True)
 
