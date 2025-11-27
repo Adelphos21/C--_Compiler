@@ -15,6 +15,8 @@ public:
     static const char* type_names[4];
 
     TType ttype;
+    Type* base = nullptr;   //Tipo base, solo para Arrays //Ej. int a[5] ttype = Array y base = int
+    int length = 0;         //para Arrays
 
     Type() : ttype(NOTYPE) {}
     Type(TType tt) : ttype(tt) {}

@@ -85,13 +85,30 @@ Program* Parser::parseProgram() {
 VarDec* Parser::parseVarDec(const std::string& tipo, const std::string& firstVarName){
     VarDec* vd = new VarDec();
     vd->type = tipo;
-    vd->vars.push_back(firstVarName);
+
+    //Parsear Arrays
+    if (match(Token::LARRAYBRACKET)) {           // '['
+        match(Token::NUM);
+        int len = stoi(previous->text);
+        match(Token::RARRAYBRACKET);            // ']'
+        vd->vars.push_back(VarItem(firstVarName,true,len));
+    } else {
+        vd->vars.push_back(VarItem(firstVarName,false,0));
+    }
     
     while(match(Token::COMA)) {
+        //Parsear Arrays de nuevo
         match(Token::ID);
-        vd->vars.push_back(previous->text);
+        string id = previous->text;
+        if (match(Token::LARRAYBRACKET)) {           // '['
+            match(Token::NUM);
+            int len = stoi(previous->text);
+            match(Token::RARRAYBRACKET);            // ']'
+            vd->vars.push_back(VarItem(id,true,len));
+        } else {
+            vd->vars.push_back(VarItem(id,false,0));
+        }
     }
-
     match(Token::SEMICOL);
     return vd;
 }
@@ -162,9 +179,18 @@ Stm* Parser::parseStm() {
 
     if(match(Token::ID)){
         variable = previous->text;
-        match(Token::ASSIGN);
-        e = parseCE();
-        return new AssignStm(variable, e);
+
+        if (match(Token::LARRAYBRACKET)) {
+            Exp* idx = parseCE();
+            match(Token::RARRAYBRACKET);
+            match(Token::ASSIGN);
+            e = parseCE();
+            return new ArrayAssignStm(variable, idx, e);
+        } else {
+            match(Token::ASSIGN);
+            e = parseCE();
+            return new AssignStm(variable, e);
+        }
     }
     else if(match(Token::PRINTF)){
         match(Token::LPAREN);
@@ -365,6 +391,12 @@ Exp* Parser::parseF() {
     }
     else if (match(Token::ID)) {
         nom = previous->text;
+        if(check(Token::LARRAYBRACKET)) {
+            match(Token::LARRAYBRACKET);
+            Exp* idx = parseCE();
+            match(Token::RARRAYBRACKET);
+            return new ArrayAccessExp(nom, idx);
+        }
         if(check(Token::LPAREN)) {
             match(Token::LPAREN);
 
