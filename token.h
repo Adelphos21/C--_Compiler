@@ -46,7 +46,9 @@ public:
         //VAR,
         COMA,
         TRUE,
-        FALSE
+        FALSE,
+        STRUCT, 
+        DOT //Va a servir para acceder a miembros
     };
 
     // Atributos

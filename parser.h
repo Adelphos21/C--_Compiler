@@ -27,6 +27,8 @@ public:
     Exp* parseE();
     Exp* parseT();
     Exp* parseF();
+    StructDef* parseStructDef();   
+    StructVarDecl* parseStructVarDecl(const string& structType, const string& varName);
 };
 
 #endif // PARSER_H      

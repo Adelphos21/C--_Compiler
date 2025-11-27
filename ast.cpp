@@ -1,4 +1,6 @@
 #include "ast.h"
+#include "visitor.h"
+
 #include <iostream>
 
 using namespace std;
@@ -60,10 +62,6 @@ PrintStm::PrintStm(Exp* expresion){
     e=expresion;
 }
 
-AssignStm::AssignStm(string variable,Exp* expresion){
-    id = variable;
-    e = expresion;
-}
 
 VarDec::VarDec() {}
 
@@ -77,3 +75,14 @@ Body::Body(){
 Body::~Body(){}
 
 
+int StructDef::accept(Visitor* visitor) {
+    return visitor->visit(this);
+}
+
+int StructVarDecl::accept(Visitor* visitor) {
+    return visitor->visit(this);
+}
+
+int MemberAccess::accept(Visitor* visitor) {
+    return visitor->visit(this);
+}

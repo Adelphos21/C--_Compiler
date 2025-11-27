@@ -92,6 +92,60 @@ public:
 };
 
 
+//////////////////////////////////////////
+
+
+
+class StructDef{
+public:
+    string nombre; // nombre del struct
+    vector<pair<string, string>> campos; // (tipo, nombre del campo)
+
+    StructDef() {}
+    ~StructDef() {}
+    int accept(Visitor* visitor);
+
+
+};
+
+
+// se declara una variable de tipo struct
+
+class StructVarDecl : public VarDec{
+public:
+    string structType;
+
+    StructVarDecl(string type, string varName){
+        
+        this-> structType =type;
+        this-> type = "struct";
+        this-> vars.push_back(varName);
+
+    }
+    int accept(Visitor* visitor);
+
+
+};
+
+
+//////////////////////////////////////////
+class MemberAccess : public Exp{
+public:
+    string structVar;
+    string member; //nombre del campo
+    MemberAccess(string var, string mem) : structVar(var), member(mem) {}
+    int accept(Visitor* visitor);
+    ~MemberAccess() {}
+
+
+
+
+};
+
+
+
+
+
 
 
 class IfStm: public Stm {
@@ -129,8 +183,10 @@ public:
 class AssignStm: public Stm {
 public:
     string id;
+    string member;
     Exp* e;
-    AssignStm(string, Exp*);
+    AssignStm(string id, Exp* e) : id(id), member(""), e(e) {}
+    AssignStm(string id, string mem, Exp* e) : id(id), member(mem), e(e) {}
     ~AssignStm();
     int accept(Visitor* visitor);
 };
@@ -182,6 +238,7 @@ public:
 
 class Program{
 public:
+    list<StructDef*> structDefs;
     list<VarDec*> vdlist;
     list<FunDec*> fdlist;
     Program(){};

@@ -79,14 +79,29 @@ int GenCodeVisitor::generar(Program* program) {
 
 int GenCodeVisitor::visit(Program* program) {
     enviroment.add_level();
-out << ".data\nprint_fmt: .string \"%ld \\n\""<<endl;
+    out << ".data\nprint_fmt: .string \"%ld \\n\""<<endl;
 
+    // Procesar definiciones de struct
+    for (auto sd : program->structDefs) {
+        sd->accept(this);
+    }
+
+    // Procesar declaraciones de variables
     for (auto dec : program->vdlist){
         dec->accept(this);
     }
 
+    // Generar variables globales
     for (auto& [var, _] : memoriaGlobal) {
-        out << var << ": .quad 0"<<endl;
+        if (varTypes.find(var) != varTypes.end()) {
+            // Struct variable
+            string structType = varTypes[var];
+            int structSize = structSizes[structType];
+            out << var << ": .space " << structSize << endl;
+        } else {
+            // Normal variable
+            out << var << ": .quad 0"<<endl;
+        }
     }
 
     out << ".text\n";
@@ -97,8 +112,78 @@ out << ".data\nprint_fmt: .string \"%ld \\n\""<<endl;
 
     out << ".section .note.GNU-stack,\"\",@progbits"<<endl;
     enviroment.remove_level();
-        return 0;
+    return 0;
 }
+
+
+int GenCodeVisitor::visit(StructDef* sd) {
+    // Calcular offsets para cada campo del struct
+    int offset = 0;
+    
+    for (auto& [tipo, nombre] : sd->campos) {
+        structOffsets[sd->nombre][nombre] = offset;
+        
+        // Calcular tamaño según tipo
+        int size = 8;  // Por ahora todo es 8 bytes (long/int)
+        if (tipo == "int") size = 8;
+        else if (tipo == "long") size = 8;
+        else if (tipo == "bool") size = 8;
+        // Si es otro struct: size = structSizes[tipo];
+        
+        offset += size;
+    }
+    
+    structSizes[sd->nombre] = offset;  // tamaño total
+    
+    return 0;
+}
+
+
+int GenCodeVisitor::visit(StructVarDecl* svd) {
+    string varName = svd->vars.front();
+    int structSize = structSizes[svd->structType];
+    
+    varTypes[varName] = svd->structType;
+    
+    if (!entornoFuncion) {
+        // Global: solo registrar
+        memoriaGlobal[varName] = true;
+    } else {
+        // Local: reservar espacio en el stack
+        enviroment.add_var(varName, offset);
+        offset -= structSize;
+    }
+    
+    return 0;
+}
+
+
+int GenCodeVisitor::visit(MemberAccess* ma) {
+    // persona.edad
+    // 1. Obtener dirección base del struct
+    // 2. Sumar offset del campo
+    // 3. Cargar valor
+    
+    string structType = varTypes[ma->structVar];
+
+    int memberOffset = structOffsets[structType][ma->member];
+
+    
+    if (memoriaGlobal.count(ma->structVar)) {
+        // Global
+        out << " leaq " << ma->structVar << "(%rip), %rax\n";
+        out << " addq $" << memberOffset << ", %rax\n";
+        out << " movq (%rax), %rax\n";
+    } else {
+        // Local
+        int baseOffset = enviroment.lookup(ma->structVar);
+        int totalOffset = baseOffset + memberOffset;
+        out << " movq " << totalOffset << "(%rbp), %rax\n";
+    }
+    
+    return 0;
+}
+
 
 int GenCodeVisitor::visit(VarDec* stm) {
     for (auto var : stm->vars) {
@@ -167,11 +252,32 @@ int GenCodeVisitor::visit(BinaryExp* exp) {
 
 int GenCodeVisitor::visit(AssignStm* stm) {
     stm->e->accept(this);
+
+    if (!stm->member.empty()) {
+    string structType = varTypes[stm->id];
+    int memberOffset = structOffsets[structType][stm->member];
+
+
+    if (memoriaGlobal.count(stm->id)){
+        out << " leaq " << stm->id << "(%rip), %rcx\n";
+        out << " addq $" << memberOffset << ", %rcx\n";
+        out << " movq %rax, (%rcx)\n";
+    }
+
+    else{
+        int baseOffset = enviroment.lookup(stm->id);
+        int totalOffset = baseOffset + memberOffset;
+        out << " movq %rax, " << totalOffset << "(%rbp)\n";
+    }
+    return 0;
+    }
+
     if (memoriaGlobal.count(stm->id))
         out << " movq %rax, " << stm->id << "(%rip)"<<endl;
     else
         out << " movq %rax, " << (enviroment.lookup(stm->id)) << "(%rbp)"<<endl;
-            return 0;
+    
+    return 0;
 }
 
 int GenCodeVisitor::visit(PrintStm* stm) {
@@ -411,3 +517,17 @@ int TypeCheckerVisitor::visit(FcallExp *fcall) {
 int TypeCheckerVisitor::visit(ReturnStm *r) {
     return 0;
 }
+
+int TypeCheckerVisitor::visit(StructDef* sd) {
+    return 0;  // No hace nada especial en type checking
+}
+
+int TypeCheckerVisitor::visit(StructVarDecl* svd) {
+    locales += 1;  // contar como 1 variable (simplificado)
+    return 0;
+}
+
+int TypeCheckerVisitor::visit(MemberAccess* ma) {
+    return 0;
+}
+

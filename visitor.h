@@ -40,6 +40,9 @@ public:
     virtual int visit(ReturnStm* r) = 0;
     virtual int visit(FunDec* fd) = 0;
     virtual int visit(ExprStm* stm) = 0;
+    virtual int visit(StructDef* sd) = 0;
+    virtual int visit(StructVarDecl* svd) = 0;
+    virtual int visit(MemberAccess* ma) = 0;
 };
 
 class TypeCheckerVisitor : public Visitor {
@@ -62,6 +65,9 @@ public:
     int visit(FunDec* fd) override;
     int visit(ForStm* stm) override;
     int visit(ExprStm* stm) override;
+    int visit(StructDef* sd) override;
+    int visit(StructVarDecl* svd) override;
+    int visit(MemberAccess* ma) override;
 };
 
 class GenCodeVisitor : public Visitor {
@@ -79,6 +85,14 @@ public:
     int labelcont = 0;
     bool entornoFuncion = false;
     string nombreFuncion;
+    unordered_map<string, string> varTypes; 
+    unordered_map<string, unordered_map<string, int>> structOffsets;  
+    unordered_map<string, int> structSizes;
+
+
+    int visit(StructDef* sd) override;
+    int visit(StructVarDecl* svd) override;
+    int visit(MemberAccess* ma) override;
     int visit(BinaryExp* exp) override;
     int visit(NumberExp* exp) override;
     int visit(IdExp* exp) override;

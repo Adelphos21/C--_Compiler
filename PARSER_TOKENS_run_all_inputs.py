@@ -27,7 +27,7 @@ for i in range(1, 5):
 
     if os.path.isfile(filepath):
         print(f"Ejecutando {filename}")
-        run_cmd = ["./a.exe", filepath]
+        run_cmd = ["./a.out", filepath]
         result = subprocess.run(run_cmd, capture_output=True, text=True)
 
         # Guardar stdout y stderr
