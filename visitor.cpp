@@ -80,6 +80,10 @@ int ArrayAssignStm::accept(Visitor* visitor){
     return visitor->visit(this);
 }
 
+int StringExp::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
 ///////////////////////////////////////////////////////////////////////////////////
 
 int GenCodeVisitor::generar(Program* program) {
@@ -199,13 +203,21 @@ int GenCodeVisitor::visit(AssignStm* stm) {
 }
 
 int GenCodeVisitor::visit(PrintStm* stm) {
+    if (auto se = dynamic_cast<StringExp*>(stm->e)) {
+        stm->e->accept(this);   // leaq str_k(%rip), %rax
+        out << " movq %rax, %rdi\n";
+        out << " movl $0, %eax\n";
+        out << " call printf@PLT\n";
+        return 0;
+    }
+
     stm->e->accept(this);
     out <<
         " movq %rax, %rsi\n"
         " leaq print_fmt(%rip), %rdi\n"
         " movl $0, %eax\n"
         " call printf@PLT\n";
-            return 0;
+    return 0;
 }
 
 
@@ -395,6 +407,36 @@ int GenCodeVisitor::visit(ArrayAssignStm* stm){
     return 0;
 }
 
+static string escape(const string& s) {
+    string r;
+    for (char c : s) {
+        if (c == '\\') r += "\\\\";
+        else if (c == '"') r += "\\\"";
+        else if (c == '\n') r += "\\n";
+        else r += c;
+    }
+    return r;
+}
+
+int GenCodeVisitor::visit(StringExp* exp) {
+    string lit = exp->value;
+    string label;
+    auto it = stringLabels.find(lit);
+    if (it == stringLabels.end()) {
+        label = "str_" + to_string(stringCounter++);
+        stringLabels[lit] = label;
+
+        out << ".section .rodata\n";
+        out << label << ": .string \"" << escape(lit) << "\"\n";
+        out << ".text\n";
+    } else {
+        label = it->second;
+    }
+
+    out << " leaq " << label << "(%rip), %rax\n";
+    return 0;
+}
+
 
 /////////////////////////////////////////////
 /////////////////////////////////////////////
@@ -437,10 +479,16 @@ int LocalsCounterVisitor::visit(VarDec *vd) {
 
 int LocalsCounterVisitor::visit(IfStm *stm) {
     int a = locales;
+
     stm-> then -> accept(this);
     int b = locales;
-    stm-> els  -> accept(this);
-    int c = locales;
+
+    int c = b;
+    if (stm->els) {
+        stm->els->accept(this);
+        c = locales;
+    }
+
     locales = a + max(b-a,c-b);
     return 0;
 }
@@ -474,8 +522,12 @@ int LocalsCounterVisitor::visit(AssignStm *stm) {
 }
 
 int LocalsCounterVisitor::visit(WhileStm *stm) {
+    int saved = locales;
+    stm->b->accept(this);
+    locales = max(locales, saved);
     return 0;
 }
+
 int LocalsCounterVisitor::visit(ForStm *stm) {
     int saved = locales;
 
@@ -508,5 +560,9 @@ int LocalsCounterVisitor::visit(ArrayAssignStm *r) {
 }
 
 int LocalsCounterVisitor::visit(ArrayAccessExp *r) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(StringExp* exp) {
     return 0;
 }

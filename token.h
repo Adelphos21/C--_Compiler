@@ -50,7 +50,8 @@ public:
         TERNARY,
         COLON,
         TRUE,
-        FALSE
+        FALSE,
+        STRING   // string literal
     };
 
     // Atributos
