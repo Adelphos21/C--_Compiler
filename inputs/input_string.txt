@@ -1,0 +1,22 @@
+int main() {
+    char s[6];
+    int a[5];
+    int i;
+
+    s[0] = 104;
+    s[1] = 111;
+    s[2] = 108;
+    s[3] = 97;
+    s[4] = 0;
+
+    a[2] = 10;
+
+    printf("hola");
+    printf(" mundo\n");
+
+    printf("hola");
+    printf(s); 
+    printf(a[2]);
+
+    return 0;
+}

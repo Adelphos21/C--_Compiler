@@ -49,6 +49,9 @@ public:
     // --- ARRAY ---
     virtual Type* visit(ArrayAccessExp* e) = 0;
     virtual void visit(ArrayAssignStm* s) = 0;
+
+    // --- STRING ---
+    virtual Type* visit(StringExp* e) = 0;
 };
 
 
@@ -66,6 +69,7 @@ private:
     Type* intType;
     Type* boolType;
     Type* voidType;
+    Type* charType;
 
     // Registro de funciones
     void add_function(FunDec* fd);
@@ -99,9 +103,13 @@ public:
     Type* visit(FcallExp* e) override;
     Type* visit(BoolExp* e) override;
 
-    // --- Expresiones ---
+    // --- ARRAY ---
     Type* visit(ArrayAccessExp* e) override;
     void visit(ArrayAssignStm* s) override;
+
+
+    // --- STRING ---
+    Type* visit(StringExp* e) override;
 };
 
 #endif // TYPECHECKER_H

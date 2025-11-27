@@ -31,7 +31,7 @@ public:
     virtual int visit(Program* p) = 0;
     virtual int visit(PrintStm* stm) = 0;
     virtual int visit(WhileStm* stm) = 0;
-     virtual int visit(ForStm* Stm) = 0;
+    virtual int visit(ForStm* Stm) = 0;
     virtual int visit(IfStm* stm) = 0;
     virtual int visit(AssignStm* stm) = 0;
     virtual int visit(Body* body) = 0;
@@ -44,6 +44,9 @@ public:
     /// ARRAY ///
     virtual int visit(ArrayAccessExp* exp) = 0;
     virtual int visit(ArrayAssignStm* stm) = 0;
+
+    /// STRING ///
+    virtual int visit(StringExp* exp) = 0;
 };
 
 class LocalsCounterVisitor : public Visitor {
@@ -69,6 +72,8 @@ public:
 
     int visit(ArrayAccessExp* exp) override;
     int visit(ArrayAssignStm* stm) override;
+
+    int visit(StringExp* exp) override;
 };
 
 class GenCodeVisitor : public Visitor {
@@ -80,6 +85,10 @@ public:
     GenCodeVisitor(std::ostream& out) : out(out) {}
     int generar(Program* program);
     //unordered_map<string, int> memoria;
+
+    unordered_map<string,string> stringLabels;
+    int stringCounter = 0;
+
     Environment<int> enviroment;
     unordered_map<string, bool> memoriaGlobal;
     unordered_map<string,int> memoriaGlobalArrayLen;
@@ -106,6 +115,8 @@ public:
 
     int visit(ArrayAccessExp* exp) override;
     int visit(ArrayAssignStm* stm) override;
+
+    int visit(StringExp* exp) override;
 };
 
 #endif // VISITOR_H
