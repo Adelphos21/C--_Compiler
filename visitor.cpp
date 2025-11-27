@@ -68,6 +68,13 @@ int ExprStm::accept(Visitor* visitor){
     return visitor->visit(this);
 }
 
+int ArrayAccessExp::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
+int ArrayAssignStm::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
 
 ///////////////////////////////////////////////////////////////////////////////////
 
@@ -91,7 +98,11 @@ out << ".data\nprint_fmt: .string \"%ld \\n\""<<endl;
     }
 
     for (auto& [var, _] : memoriaGlobal) {
-        out << var << ": .quad 0"<<endl;
+        if(memoriaGlobalArrayLen.count(var)){
+            out << var << ": .zero " << memoriaGlobalArrayLen[var]*8 << "\n";
+        } else {
+            out << var << ": .quad 0\n";
+        }
     }
 
     out << ".text\n";
@@ -108,10 +119,14 @@ out << ".data\nprint_fmt: .string \"%ld \\n\""<<endl;
 int GenCodeVisitor::visit(VarDec* stm) {
     for (auto var : stm->vars) {
         if (!entornoFuncion) {
-            memoriaGlobal[var] = true;
+            //GLOBAL
+            memoriaGlobal[var.name] = true;
+            if(var.isArray) memoriaGlobalArrayLen[var.name] = var.length;
+
         } else {
-            enviroment.add_var(var, offset);
-            offset -= 8;
+            enviroment.add_var(var.name, offset);
+            if(!var.isArray) offset -= 8;
+            else offset -= (var.length * 8);
         }
     }
         return 0;
@@ -303,7 +318,6 @@ int GenCodeVisitor::visit(ExprStm* stm) {
     return 0;
 }
 
-
 int GenCodeVisitor::visit(FcallExp* exp) {
     vector<std::string> argRegs = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
     int size = exp->argumentos.size();
@@ -314,6 +328,48 @@ int GenCodeVisitor::visit(FcallExp* exp) {
     out << "call " << exp->nombre << endl;
     return 0;
 }
+
+int GenCodeVisitor::visit(ArrayAccessExp* exp){
+    // eval index -> %rax
+    exp->index->accept(this);
+    out << " imulq $8, %rax\n";  // index*8
+
+    if (memoriaGlobal.count(exp->id)) {
+        // GLOBAL: label apunta a a[0], crece hacia arriba
+        out << " leaq " << exp->id << "(%rip), %rcx\n";
+        out << " addq %rax, %rcx\n";   // base + index*8
+    } else {
+        // LOCAL: base guardada es a[0] en -8, crece hacia abajo
+        int base = enviroment.lookup(exp->id);
+        out << " leaq " << base << "(%rbp), %rcx\n";
+        out << " subq %rax, %rcx\n";   // base - index*8 
+    }
+
+    out << " movq (%rcx), %rax\n";
+    return 0;
+}
+
+int GenCodeVisitor::visit(ArrayAssignStm* stm){
+    // 1) calcula addr en rcx
+    stm->index->accept(this);
+    out << " imulq $8, %rax\n";
+
+    if(memoriaGlobal.count(stm->id)){
+        out << " leaq " << stm->id << "(%rip), %rcx\n";
+        out << " addq %rax, %rcx\n";
+    } else {
+        int base = enviroment.lookup(stm->id);
+        out << " leaq " << base << "(%rbp), %rcx\n";
+        out << " subq %rax, %rcx\n";
+    }
+    out << " pushq %rcx\n";
+    stm->e->accept(this); 
+    out << " popq %rcx\n";
+    
+    out << " movq %rax, (%rcx)\n";
+    return 0;
+}
+
 
 /////////////////////////////////////////////
 /////////////////////////////////////////////
@@ -347,7 +403,10 @@ int LocalsCounterVisitor::visit(Body *body) {
 }
 
 int LocalsCounterVisitor::visit(VarDec *vd) {
-    locales += vd->vars.size();
+    for (auto &v : vd->vars) {
+        if (!v.isArray) locales += 1;
+        else locales += v.length;
+    }
     return 0;
 }
 
@@ -412,5 +471,13 @@ int LocalsCounterVisitor::visit(FcallExp *fcall) {
 }
 
 int LocalsCounterVisitor::visit(ReturnStm *r) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(ArrayAssignStm *r) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(ArrayAccessExp *r) {
     return 0;
 }

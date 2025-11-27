@@ -17,6 +17,8 @@ public:
         POW,     // **
         LBRACKET,  // {
         RBRACKET,  // }
+        LARRAYBRACKET, // [
+        RARRAYBRACKET, // ] 
         LPAREN,  // (
         RPAREN,  // )
         SQRT,    // sqrt

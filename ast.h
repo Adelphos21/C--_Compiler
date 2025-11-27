@@ -85,6 +85,18 @@ public:
     Type* accept(TypeVisitor* visitor); // nuevo
 };
 
+class ArrayAccessExp : public Exp {
+public:
+    string id;
+    Exp* index;
+
+    ArrayAccessExp(string id, Exp* index): id(id), index(index) {}
+    int accept(Visitor* v) override;
+    Type* accept(TypeVisitor* v) override;
+    ~ArrayAccessExp(){ delete index; }
+};
+
+
 class Stm{
 public:
     virtual int accept(Visitor* visitor) = 0;
@@ -93,15 +105,37 @@ public:
     virtual void accept(TypeVisitor* visitor) = 0;
 };
 
+class ArrayAssignStm : public Stm {
+public:
+    string id;
+    Exp* index;
+    Exp* e;
+
+    ArrayAssignStm(string id, Exp* index, Exp* e)
+        : id(id), index(index), e(e) {}
+
+    int accept(Visitor* v) override;
+    void accept(TypeVisitor* v) override;
+    ~ArrayAssignStm(){ delete index; delete e; }
+};
+
+
+struct VarItem {
+    string name;
+    bool isArray;
+    int length; // solo válido si isArray=true
+    VarItem(string n, bool arr=false, int len=0): name(n), isArray(arr), length(len) {}
+};
+
 class VarDec{
 public:
     string type;
-    list<string> vars;
+    list<VarItem> vars;
+
     VarDec();
     int accept(Visitor* visitor);
-    ~VarDec();
-
     void accept(TypeVisitor* visitor);
+    ~VarDec();
 };
 
 

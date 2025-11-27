@@ -18,6 +18,9 @@ void IfStm::accept(TypeVisitor* v){ v->visit(this); }
 void WhileStm::accept(TypeVisitor* v){ v->visit(this); }
 void ForStm::accept(TypeVisitor* v){ v->visit(this); }
 
+Type* ArrayAccessExp::accept(TypeVisitor* v){ return v->visit(this); }
+void ArrayAssignStm::accept(TypeVisitor* v){ v->visit(this); }
+
 void VarDec::accept(TypeVisitor* v) { v->visit(this); }
 void FunDec::accept(TypeVisitor* v) { v->visit(this); }
 void Body::accept(TypeVisitor* v) { v->visit(this); }
@@ -96,12 +99,20 @@ void TypeChecker::visit(VarDec* v) {
         exit(0);
     }
 
-    for (const auto& id : v->vars) {
-        if (env.check(id)) {
-            cerr << "Error: variable '" << id << "' ya declarada." << endl;
+    for (const auto& var : v->vars) {
+        if (env.check(var.name)) {
+            cerr << "Error: variable '" << var.name << "' ya declarada." << endl;
             exit(0);
         }
-        env.add_var(id, t);
+
+        if(!var.isArray){
+            env.add_var(var.name, t);
+        } else {
+            Type* arrT = new Type(Type::ARRAY);
+            arrT->base = t;
+            arrT->length = var.length;
+            env.add_var(var.name, arrT);
+        }
     }
 }
 
@@ -252,4 +263,34 @@ Type* TypeChecker::visit(FcallExp* e) {
         exit(0);
     }
     return it->second;
+}
+
+
+// ===========================================================
+//   Arrays
+// ===========================================================
+
+Type* TypeChecker::visit(ArrayAccessExp* e){
+    if(!env.check(e->id)){
+        cerr << "array no declarado: " << e->id << endl; exit(0);
+    }
+    Type* t = env.lookup(e->id);
+    if(t->ttype != Type::ARRAY){
+        cerr << e->id << " no es array\n"; exit(0);
+    }
+
+    Type* idxT = e->index->accept(this);
+    if(!idxT->match(intType)){
+        cerr << "indice de array debe ser int\n"; exit(0);
+    }
+    return t->base;
+}
+
+void TypeChecker::visit(ArrayAssignStm* s){
+    Type* leftT = (new ArrayAccessExp(s->id, s->index))->accept(this);
+    Type* rightT = s->e->accept(this);
+
+    if(!leftT->match(rightT)){
+        cerr << "tipos incompatibles en asignacion a array\n"; exit(0);
+    }
 }

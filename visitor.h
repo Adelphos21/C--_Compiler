@@ -40,6 +40,10 @@ public:
     virtual int visit(ReturnStm* r) = 0;
     virtual int visit(FunDec* fd) = 0;
     virtual int visit(ExprStm* stm) = 0;
+
+    /// ARRAY ///
+    virtual int visit(ArrayAccessExp* exp) = 0;
+    virtual int visit(ArrayAssignStm* stm) = 0;
 };
 
 class LocalsCounterVisitor : public Visitor {
@@ -62,6 +66,9 @@ public:
     int visit(FunDec* fd) override;
     int visit(ForStm* stm) override;
     int visit(ExprStm* stm) override;
+
+    int visit(ArrayAccessExp* exp) override;
+    int visit(ArrayAssignStm* stm) override;
 };
 
 class GenCodeVisitor : public Visitor {
@@ -75,6 +82,8 @@ public:
     //unordered_map<string, int> memoria;
     Environment<int> enviroment;
     unordered_map<string, bool> memoriaGlobal;
+    unordered_map<string,int> memoriaGlobalArrayLen;
+
     int offset = -8;
     int labelcont = 0;
     bool entornoFuncion = false;
@@ -94,6 +103,9 @@ public:
     int visit(ReturnStm* r) override;
     int visit(FunDec* fd) override;
     int visit(ExprStm* stm) override;
+
+    int visit(ArrayAccessExp* exp) override;
+    int visit(ArrayAssignStm* stm) override;
 };
 
 #endif // VISITOR_H

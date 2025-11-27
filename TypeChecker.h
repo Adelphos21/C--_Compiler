@@ -45,6 +45,10 @@ public:
     virtual Type* visit(IdExp* e) = 0;
     virtual Type* visit(BoolExp* e) = 0;
     virtual Type* visit(FcallExp* e) = 0;
+
+    // --- ARRAY ---
+    virtual Type* visit(ArrayAccessExp* e) = 0;
+    virtual void visit(ArrayAssignStm* s) = 0;
 };
 
 
@@ -94,6 +98,10 @@ public:
     Type* visit(IdExp* e) override;
     Type* visit(FcallExp* e) override;
     Type* visit(BoolExp* e) override;
+
+    // --- Expresiones ---
+    Type* visit(ArrayAccessExp* e) override;
+    void visit(ArrayAssignStm* s) override;
 };
 
 #endif // TYPECHECKER_H
