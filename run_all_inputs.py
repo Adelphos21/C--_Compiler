@@ -5,7 +5,7 @@ from pathlib import Path
 
 programa = [
     "main.cpp", "scanner.cpp", "token.cpp", "parser.cpp",
-    "ast.cpp", "visitor.cpp", "typechecker.cpp"
+    "ast.cpp", "visitor.cpp", "typeChecker.cpp"
 ]
 
 # Compilar
@@ -19,9 +19,9 @@ if result.returncode != 0:
 
 print("Compilación exitosa")
 
-exe_name = "./a.exe" if os.name == "nt" else "./a.out"
+exe_name = "./a.out" if os.name == "nt" else "./a.out"
 if not os.path.isfile(exe_name):
-    exe_name = "./a.exe" if os.path.isfile("./a.exe") else "./a.out"
+    exe_name = "./a.out" if os.path.isfile("./a.out") else "./a.out"
 
 input_dir = Path("inputs")
 output_dir = Path("outputs")

@@ -47,6 +47,8 @@ public:
         END,      // Fin de entrada
         //VAR,
         COMA,
+        TERNARY,
+        COLON,
         TRUE,
         FALSE
     };

@@ -1,4 +1,4 @@
-#include "typechecker.h"
+#include "typeChecker.h"
 #include <iostream>
 #include <stdexcept>
 using namespace std;
@@ -9,6 +9,7 @@ Type* IdExp::accept(TypeVisitor* v) { return v->visit(this); }
 Type* BinaryExp::accept(TypeVisitor* v) { return v->visit(this); }
 Type* FcallExp::accept(TypeVisitor* v) { return v->visit(this); }
 Type* BoolExp::accept(TypeVisitor* v) { return v->visit(this); }
+Type* TernaryExp::accept(TypeVisitor* v) { return v->visit(this); }
 
 void AssignStm::accept(TypeVisitor* v) { v->visit(this); }
 void PrintStm::accept(TypeVisitor* v) { v->visit(this); }
@@ -242,6 +243,27 @@ Type* TypeChecker::visit(BinaryExp* e) {
             cerr << "Error: operador binario no soportado." << endl;
             exit(0);
     }
+}
+
+Type* TypeChecker::visit(TernaryExp* e) {
+    Type* condType = e->condition->accept(this);
+    
+    // La condición debe ser booleana o entera
+    if (!(condType->match(boolType) || condType->match(intType))) {
+        cerr << "Error: condición en operador ternario debe ser bool o int." << endl;
+        exit(0);
+    }
+    
+    Type* trueType = e->trueExpr->accept(this);
+    Type* falseType = e->falseExpr->accept(this);
+    
+    // Ambos tipos deben ser compatibles
+    if (!trueType->match(falseType)) {
+        cerr << "Error: tipos incompatibles en ramas del operador ternario." << endl;
+        exit(0);
+    }
+    
+    return trueType;
 }
 
 Type* TypeChecker::visit(NumberExp* e) { return intType; }

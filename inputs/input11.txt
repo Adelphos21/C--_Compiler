@@ -1,0 +1,26 @@
+int main() {
+    int n;
+    int sum;
+    int result;
+    n = 5;
+    sum = 0;
+
+    for (int i = 0; i <= n; i = i + 1) {
+        sum = sum + i;
+    }
+
+    printf(sum);
+    
+    // Prueba del operador ternario
+    result = (sum > 10) ? 100 : 200;
+    printf(result);
+    
+    // Otro ejemplo de ternario
+    int isEven = (n / 2 == 0) ? 1 : 0;
+    printf(isEven);
+    
+    // Ternario en printf directamente
+    printf((sum == 15) ? 999 : 888);
+    
+    return 0;
+}

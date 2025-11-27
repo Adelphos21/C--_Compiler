@@ -29,6 +29,7 @@ enum BinaryOp {
     GEQ_OP
 };
 
+
 // Clase abstracta Exp
 class Exp {
 public:
@@ -59,6 +60,18 @@ public:
     int accept(Visitor* visitor);
     NumberExp(int v);
     ~NumberExp();
+
+    Type* accept(TypeVisitor* visitor);
+};
+
+class TernaryExp : public Exp {
+public:
+    Exp* condition;
+    Exp* trueExpr;
+    Exp* falseExpr;
+    int accept(Visitor* visitor);
+    TernaryExp(Exp* cond, Exp* trueExp, Exp* falseExp);
+    ~TernaryExp();
 
     Type* accept(TypeVisitor* visitor);
 };

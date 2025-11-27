@@ -2,7 +2,7 @@
 #include "ast.h"
 #include "visitor.h"
 #include <unordered_map>
-#include "typechecker.h"
+#include "typeChecker.h"
 using namespace std;
 
 ///////////////////////////////////////////////////////////////////////////////////
@@ -65,6 +65,10 @@ int ReturnStm::accept(Visitor* visitor){
 }
 
 int ExprStm::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
+int TernaryExp::accept(Visitor* visitor) {
     return visitor->visit(this);
 }
 
@@ -318,6 +322,27 @@ int GenCodeVisitor::visit(ExprStm* stm) {
     return 0;
 }
 
+int GenCodeVisitor::visit(TernaryExp* exp) {
+    int falseLabel = labelcont++;
+    int endLabel = labelcont++;
+    
+    // Evaluar condición
+    exp->condition->accept(this);
+    out << " cmpq $0, %rax\n";
+    out << " je .L" << falseLabel << "\n";
+    
+    // Rama verdadera
+    exp->trueExpr->accept(this);
+    out << " jmp .L" << endLabel << "\n";
+    
+    // Rama falsa
+    out << ".L" << falseLabel << ":\n";
+    exp->falseExpr->accept(this);
+    
+    out << ".L" << endLabel << ":\n";
+    return 0;
+}
+
 int GenCodeVisitor::visit(FcallExp* exp) {
     vector<std::string> argRegs = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
     int size = exp->argumentos.size();
@@ -425,6 +450,10 @@ int LocalsCounterVisitor::visit(BinaryExp *exp) {
 }
 
 int LocalsCounterVisitor::visit(NumberExp *exp) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(TernaryExp* exp) {
     return 0;
 }
 

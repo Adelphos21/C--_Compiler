@@ -20,7 +20,7 @@ class Vardec;
 class FcallExp;
 class ReturnStm;
 class FunDec;
-
+class TernaryExp;
 
 class Visitor {
 public:
@@ -40,7 +40,8 @@ public:
     virtual int visit(ReturnStm* r) = 0;
     virtual int visit(FunDec* fd) = 0;
     virtual int visit(ExprStm* stm) = 0;
-
+    // Ternario uwu
+    virtual int visit(TernaryExp* stm) = 0;
     /// ARRAY ///
     virtual int visit(ArrayAccessExp* exp) = 0;
     virtual int visit(ArrayAssignStm* stm) = 0;
@@ -67,6 +68,7 @@ public:
     int visit(ForStm* stm) override;
     int visit(ExprStm* stm) override;
 
+    int visit(TernaryExp* stm) override;
     int visit(ArrayAccessExp* exp) override;
     int visit(ArrayAssignStm* stm) override;
 };
@@ -104,6 +106,7 @@ public:
     int visit(FunDec* fd) override;
     int visit(ExprStm* stm) override;
 
+    int visit(TernaryExp* stm) override;
     int visit(ArrayAccessExp* exp) override;
     int visit(ArrayAssignStm* stm) override;
 };

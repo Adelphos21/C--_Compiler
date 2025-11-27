@@ -20,6 +20,7 @@ class Body;
 class VarDec;
 class FcallExp;
 class BoolExp;
+class TernaryExp;
 
 class TypeVisitor {
 public:
@@ -45,6 +46,7 @@ public:
     virtual Type* visit(IdExp* e) = 0;
     virtual Type* visit(BoolExp* e) = 0;
     virtual Type* visit(FcallExp* e) = 0;
+    virtual Type* visit(TernaryExp* e) = 0;
 
     // --- ARRAY ---
     virtual Type* visit(ArrayAccessExp* e) = 0;
@@ -98,6 +100,7 @@ public:
     Type* visit(IdExp* e) override;
     Type* visit(FcallExp* e) override;
     Type* visit(BoolExp* e) override;
+    Type* visit(TernaryExp* e) override;
 
     // --- Expresiones ---
     Type* visit(ArrayAccessExp* e) override;
