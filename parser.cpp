@@ -64,22 +64,25 @@ Program* Parser::parseProgram() {
     Program* p = new Program();
 
     while (check(Token::ID)) {
-        match(Token::ID);
-        string tipo = previous->text;
-
-        match(Token::ID);
-        string nombre = previous->text;
-
-        if(check(Token::LPAREN)){   
-            p->fdlist.push_back(parseFunDec(tipo, nombre));
-      //} else if(check(Token::COMA) || check(Token::SEMICOL)) {
-        } else { 
-            p->vdlist.push_back(parseVarDec(tipo, nombre));
-        }
+        parseTopDeclaration(p);
     }
 
     cout << "Parser exitoso" << endl;
     return p;
+}
+
+void Parser::parseTopDeclaration(Program* p){
+    match(Token::ID);
+    string tipo = previous->text;
+
+    match(Token::ID);
+    string nombre = previous->text;
+
+    if (check(Token::LPAREN)) {
+        p->fdlist.push_back(parseFunDec(tipo, nombre));
+    } else {
+        p->vdlist.push_back(parseVarDec(tipo, nombre));
+    }
 }
 
 VarDec* Parser::parseVarDec(const std::string& tipo, const std::string& firstVarName){

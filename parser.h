@@ -16,6 +16,7 @@ private:
 public:
     Parser(Scanner* scanner);       
     Program* parseProgram();
+    void parseTopDeclaration(Program* p);
     //FunDec* parseFunDec();
     Body* parseBody();
     //VarDec* parseVarDec();
