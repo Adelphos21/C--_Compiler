@@ -15,6 +15,10 @@ class Body;
 class Exp;
 class Stm;
 class AssignStm;
+class StructDec;
+class TypedefDec;
+class FieldAccessExp;
+class FieldAssignStm;
 
 // Operadores binarios soportados
 enum BinaryOp { 
@@ -270,8 +274,11 @@ public:
 
 class Program{
 public:
+    list<StructDec*> sdlist;
+    list<TypedefDec*> tdlist;
     list<VarDec*> vdlist;
     list<FunDec*> fdlist;
+
     Program(){};
     ~Program(){};
     int accept(Visitor* visitor);
@@ -290,6 +297,48 @@ public:
     }
 };
 
+class StructDec {
+public:
+    string name;
+    list<VarDec*> fields;  // reutilizamos VarDec como "field-decs"
+
+    StructDec(string n, list<VarDec*> f): name(n), fields(f) {}
+    int accept(Visitor* v);
+    void accept(TypeVisitor* v);
+    ~StructDec(){}
+};
+
+class TypedefDec {
+public:
+    string alias;
+    string original; // nombre del tipo original (incluye struct o básico)
+    TypedefDec(string o, string a): alias(a), original(o) {}
+    int accept(Visitor* v);
+    void accept(TypeVisitor* v);
+    ~TypedefDec(){}
+};
+class FieldAccessExp : public Exp {
+public:
+    Exp* baseExp;     // normalmente IdExp o algo que deje dirección
+    string field;
+
+    FieldAccessExp(Exp* b, string f): baseExp(b), field(f) {}
+    int accept(Visitor* v) override;
+    Type* accept(TypeVisitor* v) override;
+    ~FieldAccessExp(){ delete baseExp; }
+};
+
+class FieldAssignStm : public Stm {
+public:
+    Exp* baseExp;
+    string field;
+    Exp* e;
+
+    FieldAssignStm(Exp* b, string f, Exp* e): baseExp(b), field(f), e(e) {}
+    int accept(Visitor* v) override;
+    void accept(TypeVisitor* v) override;
+    ~FieldAssignStm(){ delete baseExp; delete e; }
+};
 
 
 #endif // AST_H

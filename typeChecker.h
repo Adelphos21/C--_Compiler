@@ -21,6 +21,8 @@ class VarDec;
 class FcallExp;
 class BoolExp;
 class TernaryExp;
+class FieldAssignStm;
+class FieldAccessExp;
 
 class TypeVisitor {
 public:
@@ -30,6 +32,10 @@ public:
     virtual void visit(Body* b) = 0;
     virtual void visit(VarDec* v) = 0;
     virtual void visit(FunDec* f) = 0;
+    virtual void visit(FieldAssignStm* stm) = 0;
+    virtual Type* visit(FieldAccessExp* e) = 0;
+    virtual void visit(StructDec* s) = 0;
+    virtual void visit(TypedefDec* t) = 0;
 
     // --- Sentencias ---
     virtual void visit(PrintStm* stm) = 0;
@@ -67,6 +73,9 @@ private:
     Environment<Type*> env;                 // Entorno de variables y sus tipos
     unordered_map<string, Type*> functions; // Entorno de funciones
 
+    unordered_map<string, Type*> structTypes; // nombre struct -> Type(STRUCT)
+    unordered_map<string, Type*> typeAliases; // alias -> Type(TYPEALIAS)
+    unordered_map<string,string> varStructType;
     // Tipos básicos
     Type* intType;
     Type* boolType;
@@ -78,7 +87,8 @@ private:
 
 public:
     TypeChecker();
-
+    const unordered_map<string,string>& getVarStructType() const { return varStructType; }
+    const unordered_map<string, Type*>& getStructTypes() const { return structTypes; }
     // Método principal de verificación
     void typecheck(Program* program);
 
@@ -87,6 +97,10 @@ public:
     void visit(Body* b) override;
     void visit(VarDec* v) override;
     void visit(FunDec* f) override;
+    void visit(StructDec* s) override;
+    void visit(TypedefDec* t) override;
+    Type* visit(FieldAccessExp* e) override;
+    void visit(FieldAssignStm* stm) override;
 
     // --- Sentencias ---
     void visit(PrintStm* stm) override;
@@ -113,6 +127,7 @@ public:
 
     // --- STRING ---
     Type* visit(StringExp* e) override;
+    
 };
 
 #endif // TYPECHECKER_H

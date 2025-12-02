@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <string>
+#include <unordered_map>
 using namespace std;
 
 // ===========================================================
@@ -11,7 +12,7 @@ using namespace std;
 
 class Type {
 public:
-    enum TType { NOTYPE, VOID, INT, BOOL, CHAR, STRUCT, ARRAY /* luego LONG, PTR */ };
+    enum TType { NOTYPE, VOID, INT, BOOL, CHAR, STRUCT, ARRAY, TYPEALIAS /* luego LONG, PTR */ };
     static const char* type_names[4];
 
     TType ttype;
@@ -23,6 +24,8 @@ public:
 
     // Comparación de tipos
     bool match(Type* t) const {
+        if (this->ttype == TYPEALIAS && this->base) return this->base->match(t);
+        if (t->ttype == TYPEALIAS && t->base) return this->match(t->base);
         return this->ttype == t->ttype;
     }
 
@@ -42,7 +45,12 @@ public:
         if (s == "char") return CHAR;
         return NOTYPE;
     }
+    // --- structs ---
+    string structName;
+    unordered_map<string, Type*> fields; // nombreCampo -> tipoCampo
 
+    // --- alias (typedef) ---
+    string aliasName;
 
 };
 

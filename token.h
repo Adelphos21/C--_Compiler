@@ -51,7 +51,10 @@ public:
         COLON,
         TRUE,
         FALSE,
-        STRING   // string literal
+        STRING,   // string literal
+        STRUCT,
+        TYPEDEF,
+        DOT
     };
 
     // Atributos

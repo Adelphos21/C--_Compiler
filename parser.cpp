@@ -13,9 +13,14 @@ using namespace std;
 Parser::Parser(Scanner* sc) : scanner(sc) {
     previous = nullptr;
     current = scanner->nextToken();
+    knownTypes.insert("int");
+    knownTypes.insert("long");
+    knownTypes.insert("bool");
+    knownTypes.insert("char");
     if (current->type == Token::ERR) {
         throw runtime_error("Error léxico");
     }
+
 }
 
 bool Parser::match(Token::Type ttype) {
@@ -31,8 +36,8 @@ bool Parser::check(Token::Type ttype) {
     return current->type == ttype;
 }
 
-bool Parser::isType(const std::string& t) {
-    return t == "int" || t == "long" || t == "bool";
+bool Parser::isType(const string& t){
+    return knownTypes.count(t) > 0;
 }
 
 
@@ -63,11 +68,20 @@ bool Parser::isAtEnd() {
 Program* Parser::parseProgram() {
     Program* p = new Program();
 
-    while (check(Token::ID)) {
-        parseTopDeclaration(p);
+    while (!check(Token::END)) {
+        if (check(Token::STRUCT)) {
+            p->sdlist.push_back(parseStructDec());
+        }
+        else if (check(Token::TYPEDEF)) {
+            p->tdlist.push_back(parseTypedefDec());
+        }
+        else if (check(Token::ID)) {
+            parseTopDeclaration(p); // tu lógica original var/fun
+        }
+        else {
+            throw runtime_error("Declaración de nivel superior inválida");
+        }
     }
-
-    cout << "Parser exitoso" << endl;
     return p;
 }
 
@@ -136,6 +150,63 @@ FunDec *Parser::parseFunDec(const std::string& tipo, const std::string& nombre) 
     return fd;
 }
 
+StructDec* Parser::parseStructDec(){
+    match(Token::STRUCT);
+
+    match(Token::ID);
+    string structName = previous->text;
+
+    match(Token::LBRACKET); // '{'
+
+    list<VarDec*> fields;
+
+    while (check(Token::ID) && isType(current->text)) {
+        match(Token::ID);
+        string fieldType = previous->text;
+
+        match(Token::ID);
+        string fieldName = previous->text;
+
+        fields.push_back(parseVarDec(fieldType, fieldName));
+        // parseVarDec ya consume ';'
+    }
+
+    match(Token::RBRACKET); // '}'
+    match(Token::SEMICOL);  // ';' final de struct
+
+    // registrar struct como tipo válido para futuras declaraciones
+    knownTypes.insert(structName);
+
+    return new StructDec(structName, fields);
+}
+
+TypedefDec* Parser::parseTypedefDec(){
+    match(Token::TYPEDEF);
+
+    // tipo original (puede ser "struct" ID o tipo simple/alias)
+    string original;
+
+    if (match(Token::STRUCT)) {
+        match(Token::ID);
+        original = "struct " + previous->text;
+    } else {
+        match(Token::ID);
+        original = previous->text;
+        if (!isType(original))
+            throw runtime_error("typedef a tipo desconocido: " + original);
+    }
+
+    match(Token::ID);
+    string alias = previous->text;
+
+    match(Token::SEMICOL);
+
+    knownTypes.insert(alias);
+
+    return new TypedefDec(original, alias);
+}
+
+
 Body* Parser::parseBody(){
     Body* b = new Body();
 
@@ -182,18 +253,27 @@ Stm* Parser::parseStm() {
 
     if(match(Token::ID)){
         variable = previous->text;
+        Exp* base = new IdExp(previous->text);
+        if (match(Token::DOT)) {
+            match(Token::ID);
+            string field = previous->text;
+            match(Token::ASSIGN);
+            Exp* rhs = parseCE();
+            return new FieldAssignStm(base, field, rhs);
+        }    
 
+        
         if (match(Token::LARRAYBRACKET)) {
             Exp* idx = parseCE();
             match(Token::RARRAYBRACKET);
             match(Token::ASSIGN);
             e = parseCE();
             return new ArrayAssignStm(variable, idx, e);
-        } else {
-            match(Token::ASSIGN);
-            e = parseCE();
-            return new AssignStm(variable, e);
         }
+        match(Token::ASSIGN);
+        Exp* rhs = parseCE();
+        return new AssignStm(dynamic_cast<IdExp*>(base)->value, rhs);
+
     }
     else if(match(Token::PRINTF)){
         match(Token::LPAREN);
@@ -390,6 +470,7 @@ Exp* Parser::parseF() {
     else if (match(Token::FALSE)) {
         e = new NumberExp(0);
     }
+
     else if (match(Token::STRING)) {
         e = new StringExp(previous->text);  // sin comillas
     }
@@ -450,6 +531,12 @@ Exp* Parser::parseF() {
             e = fcall;
             continue;
         }
+        if (match(Token::DOT)) {
+            match(Token::ID);
+            string field = previous->text;
+            e = new FieldAccessExp(e, field);
+            continue;
+        }    
 
         break;
     }

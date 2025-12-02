@@ -10,6 +10,8 @@ Type* BinaryExp::accept(TypeVisitor* v) { return v->visit(this); }
 Type* FcallExp::accept(TypeVisitor* v) { return v->visit(this); }
 Type* BoolExp::accept(TypeVisitor* v) { return v->visit(this); }
 Type* TernaryExp::accept(TypeVisitor* v) { return v->visit(this); }
+Type* FieldAccessExp::accept(TypeVisitor* v) { return v->visit(this); }
+
 
 void AssignStm::accept(TypeVisitor* v) { v->visit(this); }
 void PrintStm::accept(TypeVisitor* v) { v->visit(this); }
@@ -22,6 +24,9 @@ void ForStm::accept(TypeVisitor* v){ v->visit(this); }
 Type* ArrayAccessExp::accept(TypeVisitor* v){ return v->visit(this); }
 void ArrayAssignStm::accept(TypeVisitor* v){ v->visit(this); }
 
+void FieldAssignStm::accept(TypeVisitor* v) { v->visit(this); }
+void StructDec::accept(TypeVisitor* v) { v->visit(this); }
+void TypedefDec::accept(TypeVisitor* v) { v->visit(this); }
 void VarDec::accept(TypeVisitor* v) { v->visit(this); }
 void FunDec::accept(TypeVisitor* v) { v->visit(this); }
 void Body::accept(TypeVisitor* v) { v->visit(this); }
@@ -72,15 +77,19 @@ void TypeChecker::typecheck(Program* program) {
 // ===========================================================
 
 void TypeChecker::visit(Program* p) {
-    // Primero registrar funciones
-    for (auto f : p->fdlist)
-        add_function(f);
+    // 1) registrar structs
+    for (auto s: p->sdlist) s->accept(this);
 
+    // 2) registrar typedefs
+    for (auto t: p->tdlist) t->accept(this);
+
+    // 3) registrar funciones
+    for (auto f : p->fdlist) add_function(f);
+
+    // 4) variables globales y funcs
     env.add_level();
-    for (auto v : p->vdlist)
-        v->accept(this);  
-    for (auto f : p->fdlist)
-        f->accept(this);  
+    for (auto v : p->vdlist) v->accept(this);
+    for (auto f : p->fdlist) f->accept(this);
     env.remove_level();
 }
 
@@ -97,17 +106,27 @@ void TypeChecker::visit(Body* b) {
 
 void TypeChecker::visit(VarDec* v) {
     Type* t = new Type();
+
     if (!t->set_basic_type(v->type)) {
-        cerr << "Error: tipo de variable no válido." << endl;
-        exit(0);
+        if (typeAliases.count(v->type)) t = typeAliases[v->type];
+        else if (structTypes.count(v->type)) t = structTypes[v->type];
+        else {
+            cerr << "Error: tipo de variable no válido: " << v->type << endl;
+            exit(0);
+        }
     }
+    Type* resolved = t;
+    if (resolved->ttype == Type::TYPEALIAS) resolved = resolved->base;
+    bool isStruct = resolved && resolved->ttype == Type::STRUCT;
 
     for (const auto& var : v->vars) {
         if (env.check(var.name)) {
             cerr << "Error: variable '" << var.name << "' ya declarada." << endl;
             exit(0);
         }
-
+        if (isStruct) {
+            varStructType[var.name] = resolved->structName;
+        }
         if(!var.isArray){
             env.add_var(var.name, t);
         } else {
@@ -132,6 +151,104 @@ void TypeChecker::visit(FunDec* f) {
     f->cuerpo->accept(this); 
     env.remove_level();
 }
+
+void TypeChecker::visit(StructDec* s){
+    if (structTypes.count(s->name)) {
+        cerr << "struct ya declarado: " << s->name << endl; exit(0);
+    }
+
+    Type* st = new Type(Type::STRUCT);
+    st->structName = s->name;
+
+    // scope temporal para campos
+    Environment<Type*> fieldEnv;
+    fieldEnv.add_level();
+
+    for (auto vd : s->fields){
+        // Reutilizamos visit(VarDec) pero NO debe meter campos al env global
+        // así que los procesamos manualmente:
+        Type* t = new Type();
+        if (!t->set_basic_type(vd->type)) {
+            // puede ser alias o struct
+            if (typeAliases.count(vd->type)) t = typeAliases[vd->type];
+            else if (structTypes.count(vd->type)) t = structTypes[vd->type];
+            else { cerr << "tipo de campo invalido\n"; exit(0); }
+        }
+
+        for (auto &var : vd->vars) {
+            if (st->fields.count(var.name)) {
+                cerr << "campo duplicado " << var.name << " en struct " << s->name << endl;
+                exit(0);
+            }
+
+            if(!var.isArray){
+                st->fields[var.name] = t;
+            } else {
+                Type* arrT = new Type(Type::ARRAY);
+                arrT->base = t;
+                arrT->length = var.length;
+                st->fields[var.name] = arrT;
+            }
+        }
+    }
+
+    structTypes[s->name] = st;
+}
+
+void TypeChecker::visit(TypedefDec* t){
+    if (typeAliases.count(t->alias)) {
+        cerr << "alias ya declarado: " << t->alias << endl; exit(0);
+    }
+
+    Type* baseT = new Type();
+    string orig = t->original;
+
+    if (orig.rfind("struct ",0)==0) {
+        string sname = orig.substr(7);
+        if (!structTypes.count(sname)) {
+            cerr << "typedef a struct desconocido: " << sname << endl; exit(0);
+        }
+        baseT = structTypes[sname];
+    } else {
+        if (!baseT->set_basic_type(orig)) {
+            if (typeAliases.count(orig)) baseT = typeAliases[orig];
+            else if (structTypes.count(orig)) baseT = structTypes[orig];
+            else { cerr << "typedef a tipo desconocido: " << orig << endl; exit(0); }
+        }
+    }
+
+    Type* aliasT = new Type(Type::TYPEALIAS);
+    aliasT->aliasName = t->alias;
+    aliasT->base = baseT;
+
+    typeAliases[t->alias] = aliasT;
+}
+
+Type* TypeChecker::visit(FieldAccessExp* e){
+    Type* bt = e->baseExp->accept(this);
+
+    // resolver alias
+    if (bt->ttype == Type::TYPEALIAS) bt = bt->base;
+
+    if (bt->ttype != Type::STRUCT) {
+        cerr << "acceso a campo sobre no-struct\n"; exit(0);
+    }
+
+    if (!bt->fields.count(e->field)) {
+        cerr << "campo no existe: " << e->field << endl; exit(0);
+    }
+    return bt->fields[e->field];
+}
+
+void TypeChecker::visit(FieldAssignStm* s){
+    Type* lt = (new FieldAccessExp(s->baseExp, s->field))->accept(this);
+    Type* rt = s->e->accept(this);
+
+    if (!lt->match(rt)) {
+        cerr << "tipos incompatibles en asignacion a campo\n"; exit(0);
+    }
+}
+
 
 // ===========================================================
 //   Sentencias

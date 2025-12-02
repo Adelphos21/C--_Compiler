@@ -61,7 +61,9 @@ ostream& operator<<(ostream& outs, const Token& tok) {
         case Token::FUN:    outs << "TOKEN(FUN, \""    << tok.text << "\")"; break;
         case Token::ENDFUN:    outs << "TOKEN(ENDFUN, \""    << tok.text << "\")"; break;
         case Token::RETURN:    outs << "TOKEN(RETURN, \""    << tok.text << "\")"; break;
-
+        case Token::TYPEDEF:    outs << "TOKEN(TYPEDEF, \""    << tok.text << "\")"; break;
+        case Token::STRUCT:    outs << "TOKEN(STRUCT, \""    << tok.text << "\")"; break;
+        case Token::DOT:    outs << "TOKEN(DOT, \""    << tok.text << "\")"; break;
         case Token::TRUE:    outs << "TOKEN(TRUE)"; break;
         case Token::FALSE:    outs  << "TOKEN(FALSE)"; break;
         case Token::STRING:    outs << "TOKEN(STRING, \"" << tok.text << "\")"; break;

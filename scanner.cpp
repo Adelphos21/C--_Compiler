@@ -70,7 +70,8 @@ Token* Scanner::nextToken() {
         else if (lexema=="fun") return new Token(Token::FUN, input, first, current - first);
         else if (lexema=="endfun") return new Token(Token::ENDFUN, input, first, current - first);
         else if (lexema=="return") return new Token(Token::RETURN, input, first, current - first);
-
+        else if (lexema=="typedef") return new Token(Token::TYPEDEF, input, first, current - first);
+        else if (lexema=="struct") return new Token(Token::STRUCT, input, first, current - first);
         else return new Token(Token::ID, input, first, current - first);
     }
     // Operadores
@@ -90,7 +91,7 @@ Token* Scanner::nextToken() {
             token = new Token(Token::ERR, input, first, current - first);
         }
     }
-    else if (strchr("+/-*();=<>,{}[]?:", c)) {
+    else if (strchr("+/-*();=<>,{}[]?:.", c)) {
 
         switch (c) {
             case '<':
@@ -131,7 +132,7 @@ Token* Scanner::nextToken() {
             case ',': token = new Token(Token::COMA,c); break;
             case '?': token = new Token(Token::TERNARY,c); break;
             case ':': token = new Token(Token::COLON, c); break;
-
+            case '.': token = new Token(Token::DOT, c); break;
         }
         current++;
     }

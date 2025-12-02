@@ -3,7 +3,7 @@
 
 #include "scanner.h"    // Incluye la definición del escáner (provee tokens al parser)
 #include "ast.h"        // Incluye las definiciones para construir el Árbol de Sintaxis Abstracta (AST)
-
+#include <unordered_set>
 class Parser {
 private:
     Scanner* scanner;       // Puntero al escáner, de donde se leen los tokens
@@ -14,7 +14,8 @@ private:
     bool isAtEnd();                  // Comprueba si ya se llegó al final de la entrada
     bool isType(const std::string& t);
 public:
-    Parser(Scanner* scanner);       
+    Parser(Scanner* scanner);
+    unordered_set<string> knownTypes;     
     Program* parseProgram();
     void parseTopDeclaration(Program* p);
     //FunDec* parseFunDec();
@@ -22,12 +23,15 @@ public:
     //VarDec* parseVarDec();
     FunDec* parseFunDec(const std::string& tipo, const std::string& nombre);
     VarDec* parseVarDec(const std::string& tipo, const std::string& firstVarName);
+    StructDec* parseStructDec();
+    TypedefDec* parseTypedefDec();
     Stm* parseStm();
     Exp* parseCE();
     Exp* parseBE();
     Exp* parseE();
     Exp* parseT();
     Exp* parseF();
+    
 };
 
 #endif // PARSER_H      

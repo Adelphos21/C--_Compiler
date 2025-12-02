@@ -83,12 +83,21 @@ int ArrayAssignStm::accept(Visitor* visitor){
 int StringExp::accept(Visitor* visitor){
     return visitor->visit(this);
 }
+int FieldAccessExp::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
+int FieldAssignStm::accept(Visitor* visitor){
+    return visitor->visit(this);
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////////
 
 int GenCodeVisitor::generar(Program* program) {
     TypeChecker tc;
     tc.typecheck(program);
+    varStructType = tc.getVarStructType();
 
     tipe.tipe(program);
     fun_reserva = tipe.fun_locales;
@@ -99,6 +108,12 @@ int GenCodeVisitor::generar(Program* program) {
 
 int GenCodeVisitor::visit(Program* program) {
     enviroment.add_level();
+    for (auto sd : program->sdlist) {
+        calcularStructLayout(sd);
+    }
+    for (auto& [sname, sz] : structSize) {
+        knownStructSizes[sname] = sz;
+    }
     out << ".data\n";
     out << "print_fmt: .string \"%ld\\n\"\n";
     out << "print_str_fmt: .string \"%s\\n\"\n";
@@ -125,26 +140,103 @@ int GenCodeVisitor::visit(Program* program) {
         return 0;
 }
 
-int GenCodeVisitor::visit(VarDec* stm) {
-    for (auto var : stm->vars) {
-        if (!entornoFuncion) {
-            //GLOBAL
-            memoriaGlobal[var.name] = true;
-            if(var.isArray) memoriaGlobalArrayLen[var.name] = var.length;
+void GenCodeVisitor::calcularStructLayout(StructDec* sd){
+    int off = 0;
+    unordered_map<string,int> offsets;
 
-        } else {
-            enviroment.add_var(var.name, offset);
-            if(!var.isArray) offset -= 8;
-            else offset -= (var.length * 8);
+    for (auto vd : sd->fields){
+        // tamaño de tipo base
+        int baseSize = 8; // default
+
+        if (vd->type == "char") baseSize = 1;
+
+        for (auto &var : vd->vars){
+            offsets[var.name] = off;
+
+            int sz = baseSize;
+            if (var.isArray) sz = baseSize * var.length;
+
+            // alineación simple a 8
+            int padded = ((sz + 7)/8)*8;
+            off += padded;
         }
     }
-        return 0;
+
+    structFieldOffset[sd->name] = offsets;
+    structSize[sd->name] = off;
+}
+
+
+int GenCodeVisitor::visit(VarDec* stm) {
+    bool isStruct = knownStructSizes.count(stm->type);
+
+    for (auto var : stm->vars){
+        if (!entornoFuncion){
+            memoriaGlobal[var.name] = true;
+            if (var.isArray) memoriaGlobalArrayLen[var.name] = var.length;
+            if (isStruct) memoriaGlobalArrayLen[var.name] = knownStructSizes[stm->type]/8;
+        } else {
+            enviroment.add_var(var.name, offset);
+            if (!var.isArray && !isStruct) offset -= 8;
+            else if (var.isArray) offset -= var.length*8;
+            else offset -= knownStructSizes[stm->type];
+        }
+    }
+
 }
 
 int GenCodeVisitor::visit(NumberExp* exp) {
     out << " movq $" << exp->value << ", %rax"<<endl;
     return 0;
 }
+
+int GenCodeVisitor::visit(FieldAccessExp* e){
+    auto ide = dynamic_cast<IdExp*>(e->baseExp);
+    string baseName = ide->value;
+
+    if (!varStructType.count(baseName)) {
+        cerr<<"variable no es struct para acceso campo\n"; exit(0);
+    }
+    string sname = varStructType[baseName];
+    int offField = structFieldOffset[sname][e->field];
+
+    if (memoriaGlobal.count(baseName)) {
+        out << " leaq " << baseName << "(%rip), %rcx\n";
+        out << " addq $" << offField << ", %rcx\n";
+        out << " movq (%rcx), %rax\n";
+    } else {
+        int baseOff = enviroment.lookup(baseName);
+        out << " leaq " << baseOff << "(%rbp), %rcx\n";
+        out << " addq $" << offField << ", %rcx\n";
+        out << " movq (%rcx), %rax\n";
+    }
+    return 0;
+}
+
+int GenCodeVisitor::visit(FieldAssignStm* s){
+    auto ide = dynamic_cast<IdExp*>(s->baseExp);
+    string baseName = ide->value;
+
+    string sname = varStructType[baseName];
+    int offField = structFieldOffset[sname][s->field];
+
+    // dirección del campo en rcx
+    if (memoriaGlobal.count(baseName)) {
+        out << " leaq " << baseName << "(%rip), %rcx\n";
+        out << " addq $" << offField << ", %rcx\n";
+    } else {
+        int baseOff = enviroment.lookup(baseName);
+        out << " leaq " << baseOff << "(%rbp), %rcx\n";
+        out << " addq $" << offField << ", %rcx\n";
+    }
+
+    out << " pushq %rcx\n";
+    s->e->accept(this);
+    out << " popq %rcx\n";
+    out << " movq %rax, (%rcx)\n";
+    return 0;
+}
+
 
 int GenCodeVisitor::visit(IdExp* exp) {
     if (memoriaGlobal.count(exp->value))

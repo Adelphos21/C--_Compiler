@@ -21,6 +21,8 @@ class FcallExp;
 class ReturnStm;
 class FunDec;
 class TernaryExp;
+class FieldAccessExp;
+class FieldAssignStm;
 
 class Visitor {
 public:
@@ -45,9 +47,13 @@ public:
     /// ARRAY ///
     virtual int visit(ArrayAccessExp* exp) = 0;
     virtual int visit(ArrayAssignStm* stm) = 0;
+    
 
     /// STRING ///
     virtual int visit(StringExp* exp) = 0;
+    virtual int visit(FieldAccessExp* e) = 0;
+    virtual int visit(FieldAssignStm* stm) = 0;
+
 };
 
 class LocalsCounterVisitor : public Visitor {
@@ -74,7 +80,8 @@ public:
     int visit(TernaryExp* stm) override;
     int visit(ArrayAccessExp* exp) override;
     int visit(ArrayAssignStm* stm) override;
-
+    int visit(FieldAccessExp* e) override;
+    int visit(FieldAssignStm* stm) override;
     int visit(StringExp* exp) override;
 };
 
@@ -87,13 +94,18 @@ public:
     GenCodeVisitor(std::ostream& out) : out(out) {}
     int generar(Program* program);
     //unordered_map<string, int> memoria;
-
+    unordered_map<string,int> knownStructSizes; // nombreStruct -> size bytes
+    unordered_map<string,string> varStructType; // varName -> structName
     unordered_map<string,string> stringLabels;
     int stringCounter = 0;
 
     Environment<int> enviroment;
     unordered_map<string, bool> memoriaGlobal;
     unordered_map<string,int> memoriaGlobalArrayLen;
+
+    unordered_map<string, unordered_map<string,int>> structFieldOffset;
+    unordered_map<string,int> structSize;
+
 
     int offset = -8;
     int labelcont = 0;
@@ -114,11 +126,13 @@ public:
     int visit(ReturnStm* r) override;
     int visit(FunDec* fd) override;
     int visit(ExprStm* stm) override;
-
+    void calcularStructLayout(StructDec* sd);
     int visit(TernaryExp* stm) override;
     int visit(ArrayAccessExp* exp) override;
     int visit(ArrayAssignStm* stm) override;
+    int visit(FieldAccessExp* e) override;
 
+    int visit(FieldAssignStm* stm) override;
     int visit(StringExp* exp) override;
 };
 
