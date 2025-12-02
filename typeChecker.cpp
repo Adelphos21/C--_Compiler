@@ -319,10 +319,21 @@ Type* TypeChecker::visit(ArrayAccessExp* e){
 }
 
 void TypeChecker::visit(ArrayAssignStm* s){
-    Type* leftT = (new ArrayAccessExp(s->id, s->index))->accept(this);
-    Type* rightT = s->e->accept(this);
+    if(!env.check(s->id)){
+        cerr << "array no declarado: " << s->id << endl; exit(0);
+    }
+    Type* t = env.lookup(s->id);
+    if(t->ttype != Type::ARRAY){
+        cerr << s->id << " no es array\n"; exit(0);
+    }
 
-    if(!leftT->match(rightT)){
+    Type* idxT = s->index->accept(this);
+    if(!idxT->match(intType)){
+        cerr << "indice de array debe ser int\n"; exit(0);
+    }
+
+    Type* rightT = s->e->accept(this);
+    if(!t->base->match(rightT)){
         cerr << "tipos incompatibles en asignacion a array\n"; exit(0);
     }
 }

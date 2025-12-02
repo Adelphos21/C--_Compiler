@@ -99,8 +99,9 @@ int GenCodeVisitor::generar(Program* program) {
 
 int GenCodeVisitor::visit(Program* program) {
     enviroment.add_level();
-out << ".data\nprint_fmt: .string \"%ld \\n\""<<endl;
-
+    out << ".data\n";
+    out << "print_fmt: .string \"%ld\\n\"\n";
+    out << "print_str_fmt: .string \"%s\\n\"\n";
     for (auto dec : program->vdlist){
         dec->accept(this);
     }
@@ -206,6 +207,7 @@ int GenCodeVisitor::visit(PrintStm* stm) {
     if (auto se = dynamic_cast<StringExp*>(stm->e)) {
         stm->e->accept(this);   // leaq str_k(%rip), %rax
         out << " movq %rax, %rdi\n";
+        out << " leaq print_fmt(%rip), %rdi\n";
         out << " movl $0, %eax\n";
         out << " call printf@PLT\n";
         return 0;

@@ -306,34 +306,27 @@ else if (match(Token::IF)) {
 Exp* Parser::parseCE() {
     Exp* l = parseBE();
 
-    if (match(Token::LE)) {              // <
-        BinaryOp op = LE_OP;
+    while (check(Token::LE) || check(Token::LEQ) ||
+           check(Token::GE) || check(Token::GEQ)) {
+
+        BinaryOp op;
+        if (match(Token::LE))      op = LE_OP;
+        else if (match(Token::LEQ)) op = LEQ_OP;
+        else if (match(Token::GE))  op = GE_OP;
+        else /* GEQ */              { match(Token::GEQ); op = GEQ_OP; }
+
         Exp* r = parseBE();
         l = new BinaryExp(l, r, op);
     }
-    else if (match(Token::LEQ)) {        // <=
-        BinaryOp op = LEQ_OP;
-        Exp* r = parseBE();
-        l = new BinaryExp(l, r, op);
-    }
-    else if (match(Token::GE)) {         // >
-        BinaryOp op = GE_OP;
-        Exp* r = parseBE();
-        l = new BinaryExp(l, r, op);
-    }
-    else if (match(Token::GEQ)) {        // >=
-        BinaryOp op = GEQ_OP;
-        Exp* r = parseBE();
-        l = new BinaryExp(l, r, op);
-    }
-    
-    if(match(Token::TERNARY)){
-        Exp* trueexpr = parseCE();
-        if(!match(Token::COLON)){
+
+    // 2) Ternario right-associative
+    if (match(Token::TERNARY)) {
+        Exp* trueExpr = parseCE();
+        if (!match(Token::COLON))
             throw runtime_error("Se esperaba ':' en operador ternario");
-        }
-        Exp* falseexpr = parseCE();
-        return new TernaryExp(l, trueexpr, falseexpr); 
+
+        Exp* falseExpr = parseCE();
+        l = new TernaryExp(l, trueExpr, falseExpr);
     }
     
     return l;
@@ -385,53 +378,81 @@ Exp* Parser::parseT() {
 }
 
 Exp* Parser::parseF() {
-    Exp* e;
-    string nom;
+    Exp* e = nullptr;
+
+    // -------- Primary --------
     if (match(Token::NUM)) {
-        return new NumberExp(stoi(previous->text));
+        e = new NumberExp(stoi(previous->text));
     }
     else if (match(Token::TRUE)) {
-        return new NumberExp(1);
+        e = new NumberExp(1);
     }
     else if (match(Token::FALSE)) {
-        return new NumberExp(0);
+        e = new NumberExp(0);
     }
-    else if (match(Token::LPAREN))
-    {
+    else if (match(Token::STRING)) {
+        e = new StringExp(previous->text);  // sin comillas
+    }
+    else if (match(Token::LPAREN)) {
         e = parseCE();
-        match(Token::RPAREN);
-        return e;
+        if (!match(Token::RPAREN))
+            throw runtime_error("Se esperaba ')'");
     }
     else if (match(Token::ID)) {
-        nom = previous->text;
-        if(check(Token::LARRAYBRACKET)) {
-            match(Token::LARRAYBRACKET);
+        e = new IdExp(previous->text);
+    }
+    else {
+        throw runtime_error("Error sintáctico en factor");
+    }
+
+    // -------- Postfix repetidos --------
+    while (true) {
+
+        // Acceso a array: e[expr]
+        if (match(Token::LARRAYBRACKET)) {
             Exp* idx = parseCE();
-            match(Token::RARRAYBRACKET);
-            return new ArrayAccessExp(nom, idx);
+            if (!match(Token::RARRAYBRACKET))
+                throw runtime_error("Se esperaba ']'");
+            
+            // e debe ser IdExp o ArrayAccess previo
+            // Para mantener tu AST simple, solo soportamos id[...]
+            // Si quieres full C, necesitarías otro nodo Postfix.
+            IdExp* ide = dynamic_cast<IdExp*>(e);
+            if (!ide)
+                throw runtime_error("Acceso a array requiere identificador");
+
+            e = new ArrayAccessExp(ide->value, idx);
+            delete ide;
+            continue;
         }
-        if(check(Token::LPAREN)) {
-            match(Token::LPAREN);
+
+        // Llamada a función: e(...)
+        if (match(Token::LPAREN)) {
+            // de nuevo, por simplicidad: solo id(...)
+            IdExp* ide = dynamic_cast<IdExp*>(e);
+            if (!ide)
+                throw runtime_error("Llamada requiere identificador");
 
             FcallExp* fcall = new FcallExp();
-            fcall->nombre = nom;
+            fcall->nombre = ide->value;
+            delete ide;
 
             if (!check(Token::RPAREN)) {
                 fcall->argumentos.push_back(parseCE());
-                while(match(Token::COMA)) {
+                while (match(Token::COMA)) {
                     fcall->argumentos.push_back(parseCE());
                 }
             }
-            match(Token::RPAREN);
-            return fcall;
+
+            if (!match(Token::RPAREN))
+                throw runtime_error("Se esperaba ')' en llamada");
+
+            e = fcall;
+            continue;
         }
-        else {
-            return new IdExp(nom);
-            }
+
+        break;
     }
-    else if(match(Token::STRING)) {
-        return new StringExp(previous->text);   
-    } else {
-        throw runtime_error("Error sintáctico");
-    }
+
+    return e;
 }
