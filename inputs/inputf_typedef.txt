@@ -1,0 +1,12 @@
+typedef int entero;
+
+int main() {
+    entero a;
+    entero b;
+    entero c;
+    a = 6;
+    b = 4;
+    c = a * b;
+    printf(c);
+    return 0;
+}

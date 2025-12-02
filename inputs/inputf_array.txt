@@ -1,0 +1,11 @@
+int g[4];
+
+int main() {
+    int a[5];
+    int x;
+    g[0] = 7;
+    a[2] = 10;
+    x = a[2] + g[0];
+    printf(x);
+    return 0;
+}

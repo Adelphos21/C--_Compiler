@@ -59,6 +59,9 @@ public:
 class LocalsCounterVisitor : public Visitor {
 public:
     unordered_map<string,int> fun_locales;
+    unordered_map<string,int> knownStructSizes;
+    unordered_map<string, unordered_map<string,int>> structFieldOffset;
+
     int locales;
     int tipe(Program* program);
     int visit(BinaryExp* exp) override;
@@ -76,6 +79,7 @@ public:
     int visit(FunDec* fd) override;
     int visit(ForStm* stm) override;
     int visit(ExprStm* stm) override;
+    void calcularStructLayout(StructDec* sd);
 
     int visit(TernaryExp* stm) override;
     int visit(ArrayAccessExp* exp) override;

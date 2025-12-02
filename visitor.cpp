@@ -166,6 +166,28 @@ void GenCodeVisitor::calcularStructLayout(StructDec* sd){
     structSize[sd->name] = off;
 }
 
+void LocalsCounterVisitor::calcularStructLayout(StructDec* sd){
+    int off = 0;
+    unordered_map<string,int> offsets;
+
+    for (auto vd : sd->fields){
+        int baseSize = 8;
+        if (vd->type == "char") baseSize = 1;
+
+        for (auto &var : vd->vars){
+            offsets[var.name] = off;
+            int sz = baseSize;
+            if (var.isArray) sz = baseSize * var.length;
+
+            int padded = ((sz + 7)/8)*8;
+            off += padded;
+        }
+    }
+    structFieldOffset[sd->name] = offsets;
+    knownStructSizes[sd->name] = off;
+}
+
+
 
 int GenCodeVisitor::visit(VarDec* stm) {
     bool isStruct = knownStructSizes.count(stm->type);
@@ -176,13 +198,22 @@ int GenCodeVisitor::visit(VarDec* stm) {
             if (var.isArray) memoriaGlobalArrayLen[var.name] = var.length;
             if (isStruct) memoriaGlobalArrayLen[var.name] = knownStructSizes[stm->type]/8;
         } else {
-            enviroment.add_var(var.name, offset);
-            if (!var.isArray && !isStruct) offset -= 8;
-            else if (var.isArray) offset -= var.length*8;
-            else offset -= knownStructSizes[stm->type];
+            if (isStruct) {
+                offset -= knownStructSizes[stm->type];
+                enviroment.add_var(var.name, offset);
+            }
+            else if (var.isArray) {
+                enviroment.add_var(var.name, offset);
+                offset -= var.length * 8;
+            }
+            else {
+                enviroment.add_var(var.name, offset);
+                offset -= 8;
+            }
+
         }
     }
-
+    return 0;
 }
 
 int GenCodeVisitor::visit(NumberExp* exp) {
@@ -536,6 +567,11 @@ int GenCodeVisitor::visit(StringExp* exp) {
 /////////////////////////////////////////////
 ///
 int LocalsCounterVisitor::tipe(Program *program) {
+
+    for (auto sd : program->sdlist) {
+        calcularStructLayout(sd);
+    }
+
     for(auto i: program->fdlist) {
         i->accept(this);
     }
@@ -564,10 +600,19 @@ int LocalsCounterVisitor::visit(Body *body) {
 }
 
 int LocalsCounterVisitor::visit(VarDec *vd) {
-    for (auto &v : vd->vars) {
-        if (!v.isArray) locales += 1;
-        else locales += v.length;
+    bool isStruct = knownStructSizes.count(vd->type);
+        for (auto &v : vd->vars) {
+        if (isStruct) {
+            locales += knownStructSizes[vd->type] / 8; // slots de 8 bytes
+        }
+        else if (!v.isArray) {
+            locales += 1;
+        }
+        else {
+            locales += v.length;
+        }
     }
+
     return 0;
 }
 
@@ -658,5 +703,13 @@ int LocalsCounterVisitor::visit(ArrayAccessExp *r) {
 }
 
 int LocalsCounterVisitor::visit(StringExp* exp) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(FieldAssignStm* stm) {
+    return 0;
+}
+
+int LocalsCounterVisitor::visit(FieldAccessExp* exp) {
     return 0;
 }

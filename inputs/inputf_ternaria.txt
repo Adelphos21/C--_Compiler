@@ -1,0 +1,10 @@
+int main() {
+    int x;
+    int y;
+    int m;
+    x = 3;
+    y = 8;
+    m = (x < y) ? x : y;
+    printf(m);
+    return 0;
+}

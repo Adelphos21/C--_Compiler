@@ -68,7 +68,7 @@ bool Parser::isAtEnd() {
 Program* Parser::parseProgram() {
     Program* p = new Program();
 
-    while (!check(Token::END)) {
+    while (!isAtEnd()) {
         if (check(Token::STRUCT)) {
             p->sdlist.push_back(parseStructDec());
         }
@@ -212,7 +212,7 @@ Body* Parser::parseBody(){
 
     match(Token::LBRACKET);
 
-    while(check(Token::ID) && isType(current->text)) {
+    while((check(Token::ID) && isType(current->text)) || match(Token::STRUCT)) {
         match(Token::ID);
         std::string tipo = previous->text;
 

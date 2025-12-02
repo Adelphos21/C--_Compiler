@@ -1,0 +1,14 @@
+struct Punto {
+    int x;
+    int y;
+    int z;
+};
+
+int main() {
+    struct Punto p;
+    p.x = 5;
+    p.y = 9;
+    printf(p.x);
+    printf(p.y);
+    return 0;
+}
