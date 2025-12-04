@@ -226,23 +226,28 @@ int GenCodeVisitor::visit(FieldAccessExp* e){
     string baseName = ide->value;
 
     if (!varStructType.count(baseName)) {
-        cerr<<"variable no es struct para acceso campo\n"; exit(0);
+        cerr << "variable no es struct para acceso campo\n";
+        exit(0);
     }
+
     string sname = varStructType[baseName];
     int offField = structFieldOffset[sname][e->field];
 
     if (memoriaGlobal.count(baseName)) {
+        // GLOBAL: mantener RIP-relative
         out << " leaq " << baseName << "(%rip), %rcx\n";
         out << " addq $" << offField << ", %rcx\n";
         out << " movq (%rcx), %rax\n";
     } else {
         int baseOff = enviroment.lookup(baseName);
-        out << " leaq " << baseOff << "(%rbp), %rcx\n";
-        out << " addq $" << offField << ", %rcx\n";
-        out << " movq (%rcx), %rax\n";
+        int fieldOffFinal = baseOff + offField;
+
+        out << " movq " << fieldOffFinal << "(%rbp), %rax\n";
     }
     return 0;
 }
+
+
 
 int GenCodeVisitor::visit(FieldAssignStm* s){
     auto ide = dynamic_cast<IdExp*>(s->baseExp);
@@ -251,22 +256,24 @@ int GenCodeVisitor::visit(FieldAssignStm* s){
     string sname = varStructType[baseName];
     int offField = structFieldOffset[sname][s->field];
 
-    // dirección del campo en rcx
     if (memoriaGlobal.count(baseName)) {
         out << " leaq " << baseName << "(%rip), %rcx\n";
         out << " addq $" << offField << ", %rcx\n";
+        out << " pushq %rcx\n";
+        s->e->accept(this);
+        out << " popq %rcx\n";
+        out << " movq %rax, (%rcx)\n";
     } else {
         int baseOff = enviroment.lookup(baseName);
-        out << " leaq " << baseOff << "(%rbp), %rcx\n";
-        out << " addq $" << offField << ", %rcx\n";
-    }
+        int fieldOffFinal = baseOff + offField;
 
-    out << " pushq %rcx\n";
-    s->e->accept(this);
-    out << " popq %rcx\n";
-    out << " movq %rax, (%rcx)\n";
+        s->e->accept(this);
+        out << " movq %rax, " << fieldOffFinal << "(%rbp)\n";
+    }
     return 0;
 }
+
+
 
 
 int GenCodeVisitor::visit(IdExp* exp) {
@@ -492,27 +499,27 @@ int GenCodeVisitor::visit(FcallExp* exp) {
 }
 
 int GenCodeVisitor::visit(ArrayAccessExp* exp){
-    // eval index -> %rax
     exp->index->accept(this);
     out << " imulq $8, %rax\n";  // index*8
 
     if (memoriaGlobal.count(exp->id)) {
-        // GLOBAL: label apunta a a[0], crece hacia arriba
         out << " leaq " << exp->id << "(%rip), %rcx\n";
-        out << " addq %rax, %rcx\n";   // base + index*8
+        out << " addq %rax, %rcx\n";
     } else {
-        // LOCAL: base guardada es a[0] en -8, crece hacia abajo
         int base = enviroment.lookup(exp->id);
-        out << " leaq " << base << "(%rbp), %rcx\n";
-        out << " subq %rax, %rcx\n";   // base - index*8 
+        int total = -base;
+
+        out << " movq %rbp, %rcx\n";
+        out << " subq $" << total << ", %rcx\n";
+        out << " subq %rax, %rcx\n";
     }
 
     out << " movq (%rcx), %rax\n";
     return 0;
 }
 
+
 int GenCodeVisitor::visit(ArrayAssignStm* stm){
-    // 1) calcula addr en rcx
     stm->index->accept(this);
     out << " imulq $8, %rax\n";
 
@@ -521,16 +528,20 @@ int GenCodeVisitor::visit(ArrayAssignStm* stm){
         out << " addq %rax, %rcx\n";
     } else {
         int base = enviroment.lookup(stm->id);
-        out << " leaq " << base << "(%rbp), %rcx\n";
+        int total = -base;
+
+        out << " movq %rbp, %rcx\n";
+        out << " subq $" << total << ", %rcx\n";
         out << " subq %rax, %rcx\n";
     }
+
     out << " pushq %rcx\n";
     stm->e->accept(this); 
     out << " popq %rcx\n";
-    
     out << " movq %rax, (%rcx)\n";
     return 0;
 }
+
 
 static string escape(const string& s) {
     string r;
@@ -583,7 +594,7 @@ int LocalsCounterVisitor::visit(FunDec *fd) {
     int parametros = fd->Pnombres.size();
     locales = 0;
     fd->cuerpo->accept(this);
-    fun_locales[fd->nombre] = parametros + locales;
+    fun_locales[fd->nombre] = parametros + locales + 1;
     return 0;
 }
 
